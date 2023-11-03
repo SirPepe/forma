@@ -3,13 +3,15 @@ import {
   SHADOW_ROOT,
   component as baseComponent,
   reactive,
-  prop,
   attr,
   string,
   bool,
   capture,
   literal,
 } from "@sirpepe/falsework";
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(":invalid { box-shadow: 0 0 0.333em red }");
 
 function getValidity(sources) {
   for (const source of sources) {
@@ -18,24 +20,23 @@ function getValidity(sources) {
       return [source.validity, source.validationMessage ?? "", anchor];
     }
   }
-  return [{}, "", undefined];
+  return [{ valid: true }, "", undefined];
 }
 
 function exposeValidity(sources, target) {
   const [validity, validationMessage, anchor] = getValidity(sources);
-  console.log("Validity:", sources, validity, validationMessage);
+  console.log(`Validity on "${target.name}":`, validity.valid, validationMessage);
   target[INTERNALS_KEY].setValidity(validity, validationMessage, anchor);
 }
 
 function exposeValue(source, target) {
   if (source.type === "checkbox" && !source.checked) {
-    console.log("Exposing value:", source, new FormData())
+    console.log(`Value on "${target.name}": unchecked`);
     target[INTERNALS_KEY].setFormValue(new FormData()); // unset form value
   } else {
-    console.log("Exposing value:", source, source.value)
+    console.log(`Value on "${target.name}":`, source.value);
     target[INTERNALS_KEY].setFormValue(source.value);
   }
-
 }
 
 const INTERNALS_KEY = Symbol();
@@ -44,8 +45,8 @@ function component(tagName, options) {
   if (!options?.formElement) {
     return baseComponent(tagName);
   }
-  if (typeof options.anchor !== "string") {
-    throw new Error("Missing a selector for the anchor element");
+  if (typeof options.source !== "string") {
+    throw new Error("Missing a selector for the source element");
   }
   return function(Target) {
     @baseComponent(tagName)
@@ -57,15 +58,20 @@ function component(tagName, options) {
         return { mode: "open", delegatesFocus: true };
       }
 
+      constructor() {
+        super();
+        this[SHADOW_ROOT].adoptedStyleSheets = [sheet];
+      }
+
       @reactive()
-      @capture("input", options.anchor)
+      @capture("input", options.source, options.validate)
       exposeInternals() {
         exposeValue(
-          this[SHADOW_ROOT].querySelector(options.anchor),
+          this[SHADOW_ROOT].querySelector(options.source),
           this,
         );
         exposeValidity(
-          [this[SHADOW_ROOT].querySelector(options.anchor)],
+          this[SHADOW_ROOT].querySelectorAll(options.validate ?? options.source),
           this,
         );
       };
@@ -86,13 +92,7 @@ function component(tagName, options) {
   };
 }
 
-// Features:
-// 1. Neues Formularelement als Wrapper um Standard-Elemente, ohne zu viel
-//    Boilerplate
-// 2. Funktioniert mit jedem beliebigen Render-Mechanismus (hier via BaseClass
-//    bereitgestelltes uhtml, kann aber wirklich *alles* mögliche sein)
-// 3. :valid und :invalid (:user-valid und :user-invalid sind buggy)
-@component("custom-input", { formElement: true, anchor: "input" })
+@component("custom-input", { formElement: true, source: "input" })
 export class CustomInput extends FalseworkElement {
   @attr(string()) accessor name = "";
   @attr(string()) accessor value = "";
@@ -103,33 +103,22 @@ export class CustomInput extends FalseworkElement {
   }
 }
 
-// 4. Verhält sich 1:1 wie eine normale Checkbox, d.h. sendet nur den Payload
-//    [name]="yes", wenn angehakt
-@component("custom-checkbox", { formElement: true, anchor: "input" })
+@component("custom-checkbox", { formElement: true, source: "input" })
 export class CustomCheckbox extends FalseworkElement {
   @attr(string()) accessor name = "";
-  @prop(bool()) accessor checked = false;
+  @attr(string()) accessor value = "";
+  @attr(bool()) accessor checked = false;
+  @attr(bool()) accessor required = false;
   get template() {
-    return this.html`<input value="yes" type="checkbox" ?checked=${this.checked} />`;
+    return this.html`<input value=${this.value} type="checkbox" ?checked=${this.checked} ?required=${this.required} />`;
   }
 }
 
-@component("size-select", { formElement: true, anchor: "input:checked" })
-export class SizeSelect extends FalseworkElement {
-  @attr(string()) accessor name = "";
-  @attr(literal({ values: ["S", "M", "L", "XL"], transform: string() })) accessor value = "S";
-  get template() {
-    return this.html`
-      <label>S <input name="size" value="S" type="radio" ?checked=${this.value === "S"} /></label>
-      <label>M <input name="size" value="M" type="radio" ?checked=${this.value === "M"} /></label>
-      <label>L <input name="size" value="L" type="radio" ?checked=${this.value === "L"} /></label>
-      <label>XL <input name="size" value="XL" type="radio" ?checked=${this.value === "XL"} /></label>
-    `;
-  }
-}
-
-
-@component("confirmed-password", { formElement: true, anchor: "input" })
+@component("confirmed-password", {
+  formElement: true,
+  source: "[name=password]",
+  validate: "input"
+})
 export class ConfirmedPassword extends FalseworkElement {
   @attr(string()) accessor name = "";
   @attr(string()) accessor value = "";
@@ -145,12 +134,30 @@ export class ConfirmedPassword extends FalseworkElement {
       confirm.setCustomValidity("Passwords do not match");
     }
   }
-
   get template() {
     return this.html`
-      Pass: <input name="password" value=${this.value} type="password" ?required=${this.required} />
-      <br>
-      Confirm: <input name="confirm" value=${this.value} type="password" ?required=${this.required} />
+      <label>
+        <slot name="label-password"></slot>
+        <input name="password" value=${this.value} type="password" ?required=${this.required} />
+      </label>
+      <label>
+      <slot name="label-confirm"></slot>
+        <input name="confirm" value=${this.value} type="password" ?required=${this.required} />
+      </label>
+    `;
+  }
+}
+
+@component("size-select", { formElement: true, source: "input:checked" })
+export class SizeSelect extends FalseworkElement {
+  @attr(string()) accessor name = "";
+  @attr(literal({ values: ["S", "M", "L", "XL"], transform: string() })) accessor value = "S";
+  get template() {
+    return this.html`
+      <label>S <input name="size" value="S" type="radio" ?checked=${this.value === "S"} /></label>
+      <label>M <input name="size" value="M" type="radio" ?checked=${this.value === "M"} /></label>
+      <label>L <input name="size" value="L" type="radio" ?checked=${this.value === "L"} /></label>
+      <label>XL <input name="size" value="XL" type="radio" ?checked=${this.value === "XL"} /></label>
     `;
   }
 }

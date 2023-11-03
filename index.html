@@ -6,24 +6,33 @@
   <title>Document</title>
 </head>
 <body>
+
 <script src="./test.js" type="module"></script>
-<style>
-label {
-  display: block;
-  margin: 1em 0;
-}
-</style>
+
+<h2>Register</h2>
 
 <form>
-  <label>
-    User:<br>
-    <custom-input required name="user"></custom-input>
-  </label>
-  <label>
-    Password:<br>
-    <confirmed-password required name="pass"></confirmed-password>
-  </label>
-  <input type="submit">
+  <p>
+    <label>
+      User:
+      <custom-input required name="user"></custom-input>
+    </label>
+  </p>
+  <p>
+    <confirmed-password required name="pass">
+      <span slot="label-password">Password</span>
+      <span slot="label-confirm">Confirm password</span>
+    </confirmed-password>
+  </p>
+  <p>
+    <label>
+      <custom-checkbox required name="acceptterms" value="yes"></custom-checkbox>
+      Accept terms and conditions
+    </label>
+  </p>
+  <p>
+    <input type="submit">
+  </p>
 </form>
 
 </body>
