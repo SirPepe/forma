@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "rootDir": "./",
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "module": "esnext",
+    "outDir": "dist",
+    "strict": true
+  },
+  "include": [
+    "**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

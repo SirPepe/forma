@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<script src="./test.js" type="module"></script>
+<style>
+label {
+  display: block;
+  margin: 1em 0;
+}
+</style>
+
+<form>
+  <label>
+    User:<br>
+    <custom-input required name="user"></custom-input>
+  </label>
+  <label>
+    Password:<br>
+    <confirmed-password required name="pass"></confirmed-password>
+  </label>
+  <input type="submit">
+</form>
+
+</body>
+</html>

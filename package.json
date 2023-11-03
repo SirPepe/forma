@@ -1,0 +1,18 @@
+{
+  "name": "form-components",
+  "version": "0.0.0",
+  "description": "",
+  "main": "test.js",
+  "scripts": {
+    "dev": "parcel --no-cache index.html"
+  },
+  "author": "peter@peterkroener.de",
+  "license": "MIT",
+  "dependencies": {
+    "@sirpepe/falsework": "^0.0.4"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.23.0",
+    "parcel": "^2.9.3"
+  }
+}
