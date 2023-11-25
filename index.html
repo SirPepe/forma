@@ -1,39 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document</title>
 <script src="./test.js" type="module"></script>
+<script type="module">
+document.documentElement.addEventListener("click", ({ target }) => {
+  if (target.matches("button.toggleFieldset")) {
+    const fs = document.querySelector("fieldset");
+    if (fs.disabled) {
+      fs.disabled = false;
+      target.innerHTML = "Disable fieldset"
+    } else {
+      fs.disabled = true;
+      target.innerHTML = "Enable fieldset"
+    }
+  }
+});
+</script>
 
-<h2>Register</h2>
+<h2>Test</h2>
 
 <form>
-  <p>
-    <label>
-      User:
-      <custom-input required name="user"></custom-input>
-    </label>
-  </p>
-  <p>
-    <confirmed-password required name="pass">
-      <span slot="label-password">Password</span>
-      <span slot="label-confirm">Confirm password</span>
-    </confirmed-password>
-  </p>
-  <p>
-    <label>
-      <custom-checkbox required name="acceptterms" value="yes"></custom-checkbox>
-      Accept terms and conditions
-    </label>
-  </p>
+  <fieldset>
+    <legend>Fieldset</legend>
+    <p>
+      <label>
+        Custom Integer Input: <int-input name="demo" required value="2"></int-input>
+      </label>
+    </p>
+    <p>
+      <label>
+        Regular Text Input: <input type="text" name="regular" value="Hello" />
+      </label>
+    </p>
+  </fieldset>
   <p>
     <input type="submit">
+    <input type="reset">
+    <button type="button" class="toggleFieldset">Disable fieldset</button>
   </p>
 </form>
-
-</body>
-</html>

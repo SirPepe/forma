@@ -3,16 +3,18 @@
   "version": "0.0.0",
   "description": "",
   "main": "test.js",
+  "type": "module",
   "scripts": {
     "dev": "parcel --no-cache index.html"
   },
   "author": "peter@peterkroener.de",
   "license": "MIT",
-  "dependencies": {
-    "@sirpepe/falsework": "^0.0.4"
-  },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^7.23.0",
     "parcel": "^2.9.3"
+  },
+  "dependencies": {
+    "@sirpepe/ornament": "^0.0.21",
+    "uhtml": "^3.2.2"
   }
 }
