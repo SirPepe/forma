@@ -1,22 +1,80 @@
-import { define, formElement, BaseElement, attr, int, bool } from "./fw.js";
+import { render, html } from "uhtml";
+import {
+  configure,
+  define,
+  formElement,
+  attr,
+  int,
+  bool,
+  reactive,
+  debounce,
+} from "./src/membrane.js";
 
-@define("int-input")
-@formElement({ source: "input" })
-export class IntInput extends BaseElement {
+//
+const SHADOW_ROOT_SLOT = Symbol();
+
+//
+configure.getRenderRoot((instance) => instance[SHADOW_ROOT_SLOT]);
+
+//
+class BaseElement extends HTMLElement {
+  //
+  [SHADOW_ROOT_SLOT] = this.attachShadow(
+    this.shadowRootInit ?? { mode: "closed", delegatesFocus: true },
+  );
+
+  // Nothing more than a nicer string tag out of the box, derived from the
+  // element's tag name.
+  get [Symbol.toStringTag]() {
+    const stringTag = this.tagName
+      .split("-")
+      .map((s) => s.slice(0, 1).toUpperCase() + s.slice(1).toLowerCase())
+      .join("");
+    return "HTML" + stringTag + "Element";
+  }
+
+  // Wraps uhtml to make this.html work as expected
+  html(...args) {
+    return html(...args);
+  }
+
+  @reactive()
+  @debounce({ fn: debounce.raf() })
+  #render() {
+    if (!("template" in this)) {
+      return;
+    }
+    if ("css" in this) {
+      render(
+        this[SHADOW_ROOT_SLOT],
+        this.html`${this.template}<style>${this.css}</style>`,
+      );
+    } else {
+      render(this[SHADOW_ROOT_SLOT], this.html`${this.template}`);
+    }
+  }
+}
+
+@define("int-input")// 👍 Ornament-Decorator für CE-Definition
+@formElement() // 👍 ein Decorator macht name + value + disabled + Form-Resets
+export class IntInput extends BaseElement { // 👍 nicht vorgegebene Basisklasse
+  // 👍 Ornament-Decorators für Attribute
   @attr(bool()) accessor required = false;
   @attr(int({ nullable: true })) accessor min = null;
   @attr(int({ nullable: true })) accessor max = null;
 
-  render(state) {
+  get template() { // 👍 nicht vorgegebene Render-Logik
+    // 👎 Content- und IDL-Attribute für "value" müssen unterschieden werden (defaultValue/Value)
+    // 👎 Lokales und gesamter Disabled- und IDL-Attribute für "value" müssen unterschieden werden (defaultValue/Value)
     return this.html`
       <input
-        .value="${state.value || ""}"
-        min=${state.max ?? ""}
-        min=${state.max ?? ""}
+        value="${this.defaultValue}"
+        min=${this.max ?? ""}
+        min=${this.max ?? ""}
         step="1"
         type="number"
-        ?disabled=${state.disabled}
-        ?required=${state.required} />`;
+        ?disabled=${this.disabledState}
+        ?required=${this.required} />`;
   }
 }
 

@@ -14,7 +14,7 @@
     "parcel": "^2.9.3"
   },
   "dependencies": {
-    "@sirpepe/ornament": "^0.0.21",
+    "@sirpepe/ornament": "^0.0.22",
     "uhtml": "^3.2.2"
   }
 }
