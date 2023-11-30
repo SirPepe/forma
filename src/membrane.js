@@ -1,4 +1,4 @@
-import { subscribe, prop, attr, bool, string, formDisabled, reactive, listen } from "@sirpepe/ornament";
+import { prop, attr, bool, string, formDisabled, listen } from "@sirpepe/ornament";
 export * from "@sirpepe/ornament";
 
 const CONFIG_KEY = Symbol();
@@ -6,9 +6,6 @@ const CONFIG_KEY = Symbol();
 const INTERNALS_MAP = new WeakMap();
 
 const defaultConfig = {
-  getRenderRoot(element) {
-    return element.shadowRoot;
-  },
   getElementInternals(element) {
     let internals = INTERNALS_MAP.get(element);
     if (internals) {
@@ -22,11 +19,8 @@ const defaultConfig = {
 
 globalThis[CONFIG_KEY] ||= Object.create(defaultConfig);
 
-//
+// Allow elements to specify how the form decorator can access element internals
 export const configure = {
-  getRenderRoot(fn) {
-    globalThis[CONFIG_KEY].getRenderRoot = fn;
-  },
   getElementInternals(fn) {
     globalThis[CONFIG_KEY].getElementInternals = fn;
   },
@@ -52,9 +46,7 @@ function composeValidity(sourceInputs) {
 function setFormState(options, element, newValue) {
   const internals = globalThis[CONFIG_KEY].getElementInternals(element);
   internals.setFormValue(newValue);
-  const sourceElements = globalThis[CONFIG_KEY]
-    .getRenderRoot(element)
-    .querySelectorAll(options.source);
+  const sourceElements = internals.shadowRoot.querySelectorAll(options.source);
   const [validity, message, anchor] = composeValidity(sourceElements);
   internals.setValidity(validity, message, anchor);
 }
@@ -81,9 +73,18 @@ function value(options) {
         this[DIRTY_VALUE_FLAG] = false;
         setFormState(options, this, context.access.get(this));
       });
+      // Copy form state on shadow root instantiation
+      listen(this, "init", () => {
+        const source = globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .shadowRoot
+          .querySelectorAll(options.source);
+        setFormState(options, this, source.value);
+      });
       // Handle user inputs
       globalThis[CONFIG_KEY]
-        .getRenderRoot(this)
+        .getElementInternals(this)
+        .shadowRoot
         .addEventListener("input", (evt) => {
           decorator.set.call(this, evt.target.value);
           this[DIRTY_VALUE_FLAG] = true;
@@ -112,9 +113,9 @@ function value(options) {
   }
 }
 
-//
+// Decorator for turning custom elements into form elements
 export function formElement(options = {}) {
-  options.source ??= "input select textarea";
+  options.source ??= "input, select, textarea";
   if (typeof options.source !== "string") {
     throw new Error("Missing a selector for the source element");
   }
@@ -132,8 +133,8 @@ export function formElement(options = {}) {
       // attribute "value" must update the IDL attribute "value" as well as the
       // form value. Stored behind a symbol because this state must be shared
       // with the @value decorator.
-      [DIRTY_VALUE_FLAG] = false;
       // see https://html.spec.whatwg.org/#the-input-element:concept-fe-dirty
+      [DIRTY_VALUE_FLAG] = false;
 
       // Keeps track of the current content attribute "value". This value is
       // only really important when a form resets or when the content attribute
@@ -197,24 +198,52 @@ export function formElement(options = {}) {
         return this.#disabledState;
       }
 
+      get labels() {
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .labels;
+      }
+
       get form() {
-        return globalThis[CONFIG_KEY].getElementInternals(this).form;
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .form;
       }
 
       get willValidate() {
-        return globalThis[CONFIG_KEY].getElementInternals(this).willValidate;
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .willValidate;
       }
 
       get validity() {
-        return globalThis[CONFIG_KEY].getElementInternals(this).validity;
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .validity;
+      }
+
+      get validationMessage() {
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .validationMessage;
       }
 
       checkValidity() {
-        return globalThis[CONFIG_KEY].getElementInternals(this).checkValidity();
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .checkValidity();
       }
 
       reportValidity() {
-        return globalThis[CONFIG_KEY].getElementInternals(this).reportValidity();
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .reportValidity();
+      }
+
+      setCustomValidity(message) {
+        return globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .setValidity({ customError: true }, message);
       }
     }
   };

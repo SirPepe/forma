@@ -11,17 +11,9 @@ import {
 } from "./src/membrane.js";
 
 //
-const SHADOW_ROOT_SLOT = Symbol();
-
-//
-configure.getRenderRoot((instance) => instance[SHADOW_ROOT_SLOT]);
-
-//
 class BaseElement extends HTMLElement {
   //
-  [SHADOW_ROOT_SLOT] = this.attachShadow(
-    this.shadowRootInit ?? { mode: "closed", delegatesFocus: true },
-  );
+  #root = this.attachShadow({ mode: "closed", delegatesFocus: true });
 
   // Nothing more than a nicer string tag out of the box, derived from the
   // element's tag name.
@@ -41,20 +33,11 @@ class BaseElement extends HTMLElement {
   @reactive()
   @debounce({ fn: debounce.raf() })
   #render() {
-    if (!("template" in this)) {
-      return;
-    }
-    if ("css" in this) {
-      render(
-        this[SHADOW_ROOT_SLOT],
-        this.html`${this.template}<style>${this.css}</style>`,
-      );
-    } else {
-      render(this[SHADOW_ROOT_SLOT], this.html`${this.template}`);
-    }
+    render(this[SHADOW_ROOT_SLOT], this.html`${this.template ?? ""}`);
   }
 }
 
+/*
 @define("int-input")// 👍 Ornament-Decorator für CE-Definition
 @formElement() // 👍 ein Decorator macht name + value + disabled + Form-Resets
 export class IntInput extends BaseElement { // 👍 nicht vorgegebene Basisklasse
@@ -75,6 +58,35 @@ export class IntInput extends BaseElement { // 👍 nicht vorgegebene Basisklass
         type="number"
         ?disabled=${this.disabledState}
         ?required=${this.required} />`;
+  }
+}
+*/
+
+
+@define("int-input")
+@formElement()
+export class IntInput extends HTMLElement {
+  #root = this.attachShadow({ mode: "closed", delegatesFocus: true });
+
+  @attr(bool()) accessor required = false;
+  @attr(int({ nullable: true })) accessor min = null;
+  @attr(int({ nullable: true })) accessor max = null;
+
+  @reactive()
+  @debounce({ fn: debounce.raf() })
+  render() {
+    render(
+      this.#root,
+      html`
+        <input
+          value="${this.defaultValue}"
+          min=${this.max ?? ""}
+          min=${this.max ?? ""}
+          step="1"
+          type="number"
+          ?disabled=${this.disabledState}
+          ?required=${this.required} />`
+    );
   }
 }
 
