@@ -79,11 +79,12 @@ export class IntInput extends HTMLElement {
       this.#root,
       html`
         <input
+          step="1"
+          type="number"
           value="${this.defaultValue}"
           min=${this.max ?? ""}
           min=${this.max ?? ""}
-          step="1"
-          type="number"
+          ?readonly=${this.readonly}
           ?disabled=${this.disabledState}
           ?required=${this.required} />`
     );
