@@ -132,6 +132,10 @@ export function formElement(options = {}) {
       @attr(bool())
       accessor readonly = false;
 
+      // Any respectable form element can be a required field
+      @attr(bool())
+      accessor required = false;
+
       // Only true when the element hast been interacted with by the user since
       // the form was created or reset. When true, changes to the content
       // attribute "value" must update the IDL attribute "value" as well as the
