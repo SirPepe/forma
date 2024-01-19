@@ -1,4 +1,4 @@
-import { prop, attr, bool, string, formDisabled, listen } from "@sirpepe/ornament";
+import { prop, attr, bool, string, formDisabled, listen, trigger, NO_VALUE } from "@sirpepe/ornament";
 export * from "@sirpepe/ornament";
 
 const CONFIG_KEY = Symbol();
@@ -40,77 +40,67 @@ function composeValidity(sourceInputs) {
       ];
     }
   }
-  return [{ valid: true }, "", undefined];
+  return [{}, "", undefined];
 }
 
-function setFormState(options, element, newValue) {
-  const internals = globalThis[CONFIG_KEY].getElementInternals(element);
-  internals.setFormValue(newValue);
-  const sourceElements = internals.shadowRoot.querySelectorAll(options.source);
-  const [validity, message, anchor] = composeValidity(sourceElements);
-  internals.setValidity(validity, message, anchor);
+function isFormValue(input) {
+  return (
+    input instanceof File ||
+    input instanceof FormData ||
+    typeof input === "string"
+  );
 }
 
-const DIRTY_VALUE_FLAG = Symbol();
-const VALUE_CONTENT_ATTRIBUTE = Symbol();
+// Symbol for the getter that returns the current value state. Defaults to
+// grabbing the value of the first form-associated element in the shadow DOM.
+// Publicly accessible as a property on the @formElement decorator function.
+const CURRENT_VALUE_STATE = Symbol();
 
-function value(options) {
-  return function (target, context) {
-    const decorator = prop(string())(target, context);
-    context.addInitializer(function() {
-      // React to updates to the content attribute "value" while the dirty flag
-      // is false
-      listen(this, "prop", (name) => {
-        if (!this[DIRTY_VALUE_FLAG] && name === VALUE_CONTENT_ATTRIBUTE) {
-          decorator.set.call(this, this[VALUE_CONTENT_ATTRIBUTE]);
-          setFormState(options, this, context.access.get(this));
-        }
-      });
-      // React to form resets by using the content attribute "value" as the
-      // value and unsetting the dirty flag
-      listen(this, "formReset", () => {
-        decorator.set.call(this, this[VALUE_CONTENT_ATTRIBUTE]);
-        this[DIRTY_VALUE_FLAG] = false;
-        setFormState(options, this, context.access.get(this));
-      });
-      // Copy form state on shadow root instantiation
-      listen(this, "init", () => {
-        const source = globalThis[CONFIG_KEY]
-          .getElementInternals(this)
-          .shadowRoot
-          .querySelectorAll(options.source);
-        setFormState(options, this, source.value);
-      });
-      // Handle user inputs
-      globalThis[CONFIG_KEY]
-        .getElementInternals(this)
-        .shadowRoot
-        .addEventListener("input", (evt) => {
-          decorator.set.call(this, evt.target.value);
-          this[DIRTY_VALUE_FLAG] = true;
-          setFormState(options, this, context.access.get(this));
-        });
-    });
-    // Augmented prop decorator with special provisions for keeping the dirty
-    // flag and the form value up to date.
-    return {
-      // Sets the initial form value
-      init(defaultValue) {
-        const initialValue = decorator.init.call(this, defaultValue);
-        setFormState(options, this, initialValue);
-        return initialValue;
-      },
-      // Keeps the form value and the dirty flag up to date on setter
-      // invocations.
-      set(newValue) {
-        decorator.set.call(this, newValue);
-        this[DIRTY_VALUE_FLAG] = true;
-        setFormState(options, this, context.access.get(this));
-      },
-      // The getter can remain unchanged
-      get: decorator.get,
-    };
+// Default implementation for CURRENT_VALUE_STATE
+function defaultCurrentValueState(options) {
+  const internals = globalThis[CONFIG_KEY].getElementInternals(this);
+  return internals.shadowRoot.querySelectorAll(options.source)[0].value;
+}
+
+// Symbol for the method that serializes a value state to a submission state.
+// Defaults to the identity function. Publicly accessible as a property on the
+// @formElement decorator function.
+const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
+
+// Default implementation for VALUE_STATE_TO_SUBMISSION_STATE
+function defaultValueStateToSubmissionState(input) {
+  return input;
+}
+
+// Symbol for the method that deserializes a submission state to a value state.
+// Defaults to the identity function. Publicly accessible as a property on the
+// @formElement decorator function.
+const SUBMISSION_STATE_TO_VALUE_STATE = Symbol();
+
+// Default implementation for SUBMISSION_STATE_TO_VALUE_STATE
+function defaultSubmissionStateToValueState(input) {
+  return input;
+}
+
+// Symbol for the callback that notifies the base class about updates to the
+// value state via IDL attribute, content attribute, or lifecycle callback (eg.
+// form reset). Defaults to updating the first form-associated element in the
+// shadow DOM. Publicly accessible as a property on the @formElement decorator
+// function.
+const VALUE_STATE_UPDATE_CALLBACK = Symbol();
+
+// Default implementation for VALUE_STATE_UPDATE_CALLBACK
+function defaultValueStateUpdateCallback(options, valueState) {
+  const internals = globalThis[CONFIG_KEY].getElementInternals(this);
+  const submissionValue = this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
+  if (isFormValue(submissionValue)) {
+    internals
+      .shadowRoot
+      .querySelectorAll(options.source)[0]
+      .value = submissionValue;
+    return true;
   }
+  return false;
 }
 
 // Decorator for turning custom elements into form elements
@@ -121,6 +111,134 @@ export function formElement(options = {}) {
   }
   return function(Target) {
     return class FormMixin extends Target {
+      constructor() {
+        super();
+        // Input value change detection
+        globalThis[CONFIG_KEY]
+          .getElementInternals(this)
+          .shadowRoot
+          .addEventListener("input", () => this.#setFormState());
+        // The initial form state needs to be set once the element initializes.
+        // Because this uses ornament to render shadow DOM, the right moment for
+        // this is probably when the init event gets dispatched.
+        listen(this, "init", () => this.#setFormState());
+        // Form reset
+        listen(this, "formReset", (...args) => {
+          this.#DIRTY_VALUE_FLAG = false;
+
+        });
+      }
+
+      // Internal value state getter, can be overridden by the base class
+      get [CURRENT_VALUE_STATE]() {
+        if (CURRENT_VALUE_STATE in Target.prototype) {
+          return super[CURRENT_VALUE_STATE];
+        }
+        return defaultCurrentValueState.call(this, options);
+      }
+
+      // Internal value state serializer, can be overridden by the base class
+      [VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
+        if (VALUE_STATE_TO_SUBMISSION_STATE in Target.prototype) {
+          const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
+          if (isFormValue(submissionState)) {
+            return submissionState;
+          }
+        }
+        return defaultValueStateToSubmissionState.call(this, valueState);
+      }
+
+      // Internal value state deserializer, can be overridden by the base class
+      [SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
+        if (SUBMISSION_STATE_TO_VALUE_STATE in Target.prototype) {
+          return super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState)
+        }
+        return defaultSubmissionStateToValueState.call(this, submissionState);
+      }
+
+      // Internal value state deserializer, can be overridden by the base class
+      [VALUE_STATE_UPDATE_CALLBACK](input) {
+        if (VALUE_STATE_UPDATE_CALLBACK in Target.prototype) {
+          return super[VALUE_STATE_UPDATE_CALLBACK].call(this, input)
+        }
+        return defaultValueStateUpdateCallback.call(this, options, input);
+      }
+
+      // Actually sets the form state and takes care of validation
+      #setFormState() {
+        let valueState = this[CURRENT_VALUE_STATE];
+        let submissionState;
+        // The CURRENT_VALUE_STATE getter ensures that valueState can only be
+        // File, FormData or string
+        if (typeof valueState === "object") {
+          submissionState = this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
+        } else {
+          submissionState = valueState;
+          valueState = undefined;
+        }
+        const internals = globalThis[CONFIG_KEY].getElementInternals(this);
+        internals.setFormValue(submissionState, valueState);
+        const sourceElements = internals.shadowRoot.querySelectorAll(options.source);
+        const [validity, message, anchor] = composeValidity(sourceElements);
+        internals.setValidity(validity, message, anchor);
+      }
+
+      // Only true when the element has been interacted with by the user since
+      // the form was created or reset. When true, changes to the content
+      // attribute "value" must update the IDL attribute "value" as well as the
+      // form value.
+      // see https://html.spec.whatwg.org/#the-input-element:concept-fe-dirty
+      #DIRTY_VALUE_FLAG = false;
+
+      // The value content attribute gets a manual implementation because it is
+      // too dissimilar from what @attr() usually does to benefit from what
+      // Ornament can provide.
+      static get observedAttributes() {
+        return ["value"];
+      }
+
+      //
+      attributeChangedCallback(name, _, newValue) {
+        if (name !== "value" || this.#DIRTY_VALUE_FLAG) {
+          return;
+        }
+        const valueState = newValue
+          ? this[SUBMISSION_STATE_TO_VALUE_STATE](newValue)
+          : this[CURRENT_VALUE_STATE];
+        if (this[VALUE_STATE_UPDATE_CALLBACK]) {
+          const update = this[VALUE_STATE_UPDATE_CALLBACK]?.call(
+            this,
+            valueState
+          );
+          if (update === false) {
+            return;
+          }
+        }
+        this.#setFormState();
+      }
+
+      get value() {
+        return this[VALUE_STATE_TO_SUBMISSION_STATE].call(this, this[CURRENT_VALUE_STATE]);
+      }
+
+      set value(newValue) {
+        const acceptUpdate = this[VALUE_STATE_UPDATE_CALLBACK]?.call(
+          this,
+          this[SUBMISSION_STATE_TO_VALUE_STATE](newValue)
+        );
+        if (acceptUpdate === false) {
+          return;
+        }
+        this.#DIRTY_VALUE_FLAG = true;
+        this.#setFormState();
+      }
+
+      // Expose the current "default value" as a readonly IDL attribute for
+      // completeness' sake (a la React)
+      get defaultValue() {
+        return this[SUBMISSION_STATE_TO_VALUE_STATE].call(this.getAttribute("value"));
+      }
+
       // Required for all form elements
       static formAssociated = true;
 
@@ -135,33 +253,6 @@ export function formElement(options = {}) {
       // Any respectable form element can be a required field
       @attr(bool())
       accessor required = false;
-
-      // Only true when the element hast been interacted with by the user since
-      // the form was created or reset. When true, changes to the content
-      // attribute "value" must update the IDL attribute "value" as well as the
-      // form value. Stored behind a symbol because this state must be shared
-      // with the @value decorator.
-      // see https://html.spec.whatwg.org/#the-input-element:concept-fe-dirty
-      [DIRTY_VALUE_FLAG] = false;
-
-      // Keeps track of the current content attribute "value". This value is
-      // only really important when a form resets or when the content attribute
-      // gets updated while the dirty state is false. It is really only one of
-      // multiple inputs to the (actual) "value" IDL property/form value. Stored
-      // behind a symbol because this state must be shared with the @value
-      // decorator.
-      @attr(string(), { as: "value" })
-      accessor [VALUE_CONTENT_ATTRIBUTE] = "";
-
-      // Tie value input sources together with a custom @prop
-      @value(options)
-      accessor value = this[VALUE_CONTENT_ATTRIBUTE];
-
-      // Expose the current default value as a readonly IDL attribute for
-      // completeness' sake (a la React)
-      get defaultValue() {
-        return this[VALUE_CONTENT_ATTRIBUTE];
-      }
 
       // A form element can be disabled by setting the disabled attribute on the
       // element itself or by setting it on one of its ancestor fieldset
@@ -194,14 +285,14 @@ export function formElement(options = {}) {
         this.#disabledState = this.#formDisabled || this.#attrDisabled;
       }
 
-      // Public setter for the IDL attribute "disabled", which need to reflect
-      // ONLY the content attribute's state.
+      // Public setter for the IDL attribute "disabled", which must only reflect
+      // the content attribute's state.
       get disabled() {
         return this.#attrDisabled;
       }
 
       // The actual "disabled" state composed from the IDL attribute and the
-      // formDisabled state.
+      // formDisabled state. This is a non-standard API extension.
       get disabledState() {
         return this.#disabledState;
       }
@@ -256,3 +347,8 @@ export function formElement(options = {}) {
     }
   };
 }
+
+formElement.CURRENT_VALUE_STATE = CURRENT_VALUE_STATE;
+formElement.VALUE_STATE_TO_SUBMISSION_STATE = VALUE_STATE_TO_SUBMISSION_STATE;
+formElement.SUBMISSION_STATE_TO_VALUE_STATE = SUBMISSION_STATE_TO_VALUE_STATE;
+formElement.VALUE_STATE_UPDATE_CALLBACK = VALUE_STATE_UPDATE_CALLBACK;
