@@ -117,15 +117,19 @@ export function formElement(options = {}) {
         globalThis[CONFIG_KEY]
           .getElementInternals(this)
           .shadowRoot
-          .addEventListener("input", () => this.#setFormState());
+          .addEventListener("input", () => this.#updateFormState());
         // The initial form state needs to be set once the element initializes.
         // Because this uses ornament to render shadow DOM, the right moment for
         // this is probably when the init event gets dispatched.
-        listen(this, "init", () => this.#setFormState());
+        listen(this, "init", () => this.#updateFormState());
         // Form reset
-        listen(this, "formReset", (...args) => {
+        listen(this, "formReset", () => {
+          this[VALUE_STATE_UPDATE_CALLBACK](
+            this[SUBMISSION_STATE_TO_VALUE_STATE](this.getAttribute("value"))
+          );
+          console.log("Form reset", this[CURRENT_VALUE_STATE]);
+          this.#updateFormState();
           this.#DIRTY_VALUE_FLAG = false;
-
         });
       }
 
@@ -159,14 +163,15 @@ export function formElement(options = {}) {
       // Internal value state deserializer, can be overridden by the base class
       [VALUE_STATE_UPDATE_CALLBACK](input) {
         if (VALUE_STATE_UPDATE_CALLBACK in Target.prototype) {
-          return super[VALUE_STATE_UPDATE_CALLBACK].call(this, input)
+          return super[VALUE_STATE_UPDATE_CALLBACK](input)
         }
         return defaultValueStateUpdateCallback.call(this, options, input);
       }
 
       // Actually sets the form state and takes care of validation
-      #setFormState() {
+      #updateFormState() {
         let valueState = this[CURRENT_VALUE_STATE];
+        console.log("ufs", valueState);
         let submissionState;
         // The CURRENT_VALUE_STATE getter ensures that valueState can only be
         // File, FormData or string
@@ -197,7 +202,7 @@ export function formElement(options = {}) {
         return ["value"];
       }
 
-      //
+      // Only for the "value" content attribute
       attributeChangedCallback(name, _, newValue) {
         if (name !== "value" || this.#DIRTY_VALUE_FLAG) {
           return;
@@ -205,16 +210,11 @@ export function formElement(options = {}) {
         const valueState = newValue
           ? this[SUBMISSION_STATE_TO_VALUE_STATE](newValue)
           : this[CURRENT_VALUE_STATE];
-        if (this[VALUE_STATE_UPDATE_CALLBACK]) {
-          const update = this[VALUE_STATE_UPDATE_CALLBACK]?.call(
-            this,
-            valueState
-          );
-          if (update === false) {
-            return;
-          }
+        const performUpdate = this[VALUE_STATE_UPDATE_CALLBACK](valueState);
+        if (performUpdate === false) {
+          return;
         }
-        this.#setFormState();
+        this.#updateFormState();
       }
 
       get value() {
@@ -230,7 +230,7 @@ export function formElement(options = {}) {
           return;
         }
         this.#DIRTY_VALUE_FLAG = true;
-        this.#setFormState();
+        this.#updateFormState();
       }
 
       // Expose the current "default value" as a readonly IDL attribute for
