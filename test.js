@@ -1,45 +1,148 @@
-import { render, html } from "uhtml";
-import { define, formElement, attr, int, reactive, debounce } from "./src/membrane.js";
+import { render as baseRender, html as baseHTML } from "uhtml";
+import { defineFormElement, attr, int, reactive } from "./src/membrane.js";
 
-@define("int-input")
-@formElement()
-export class IntInput extends HTMLElement {
-  #root = this.attachShadow({ mode: "closed", delegatesFocus: true });
+class BaseElement extends HTMLElement {
+  #form;
 
-  @attr(int({ nullable: true })) accessor min = null;
-  @attr(int({ nullable: true })) accessor max = null;
+  constructor() {
+    super();
+    const shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
+    this.#form = document.createElement("form");
+    this.#form.noValidate = true;
+    shadow.append(this.#form);
+  }
+
+  render(content) {
+    return baseRender(this.#form, content);
+  }
+
+  html(...args) {
+    return baseHTML(...args);
+  }
+}
+
+// Einfachster Use Case: Wrapper-Komponente über _ein_ form-associated Element.
+// Nützlich für Pattern Libraries oder Varianten von anderen Elementen (wie in
+// diesem Beispiel: int-Input aus normalem number-Input) Legt ein paar Attribute
+// des gewrappten Inputs fest (step, type) und reicht andere (min, max) aus den
+// eigenen Attributen an das gewrappte Input durch. Liefert ein komplettes FACE
+// mit allen Form-APIs, vollautomatischem internem State-Management (Dirty Flag,
+// Disabled-State via Fieldset, Form-Reset etc.) Formular-Validierung etc.
+@defineFormElement("integer-input")
+export class IntegerInput extends BaseElement {
+  @attr(int({ nullable: true }))
+  accessor min = null;
+
+  @attr(int({ nullable: true }))
+  accessor max = null;
 
   @reactive()
-  @debounce({ fn: debounce.raf() })
-  render() {
-    render(
-      this.#root,
-      html`
-      <form novalidate>
+  #render() {
+    return this.render(
+      this.html`
         <input
           name="input"
           step="1"
           type="number"
-          value="${this.defaultValue}"
           min=${this.max ?? ""}
           min=${this.max ?? ""}
+          value=${this.defaultValue}
           ?readonly=${this.readonly}
           ?disabled=${this.disabledState}
-          ?required=${this.required} />
-        </form>`
+          ?required=${this.required} />`
     );
   }
 }
 
-// TODO: Alpha-Input
+// Komplexerer Use Case: FACE durch Komposition aus mehreren form-associated
+// Elements (in diesem Beispiel: Color-Input + Number-Input = Color-Input mit
+// Alphakanal). Die Values der zwei gewrappten Inputs werden intern als FormData
+// repräsentiert, die für die Value-Attribute und den Submission value zu
+// Strings serialisiert werden müssen - daher die zwei
+// Transformations-Funktionen. Liefert _ein_ komplettes FACE, dessen innerer
+// Aufbau aus zwei Inputs komplett wegabstrahiert ist.
+@defineFormElement("color-picker")
+export class ColorPicker extends BaseElement {
+  static ALPHA_COLOR_RE = /^(?<rgb>#[a-fA-F0-9]{6})(?<alpha>[a-fA-F0-9]{2})$/;
 
-@define("bad-date-picker")
-@formElement()
-export class BadDatePicker extends HTMLElement {
-  #root = this.attachShadow({ mode: "open", delegatesFocus: true });
+  // Transformiert Value State (FormData) zu Submission State (String)
+  [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
+    if (!valueState) {
+      return "";
+    }
+    const alpha = Number(valueState.get("alpha")).toString(16).padStart(2, "0");
+    return `${valueState.get("rgb")}${alpha}`;
+  }
 
-  // Transformiert Value State zu Submission State
-  [formElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
+  // Transformiert Submission State (String) zu Value State (FormData)
+  [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
+    if (!submissionState) {
+      return null;
+    }
+    const match = ColorPicker.ALPHA_COLOR_RE.exec(submissionState);
+    if (!match) {
+      return null;
+    }
+    const valueState = new FormData();
+    valueState.set("rgb", match.groups.rgb);
+    valueState.set("alpha", Number.parseInt(match.groups.alpha, 16));
+    return valueState;
+  }
+
+  @reactive()
+  #render() {
+    const currentRgb = this.valueState.get("rgb") || "#000000";
+    const currentAlpha = this.valueState.get("alpha") || "255";
+    this.render(
+      this.html`
+        <input
+          name="rgb"
+          type="color"
+          .value=${currentRgb}
+          ?readonly=${this.readonly}
+          ?disabled=${this.disabledState}
+          ?required=${this.required} />
+        <input
+          name="alpha"
+          type="number"
+          .value=${currentAlpha}
+          min="0"
+          max="255"
+          ?readonly=${this.readonly}
+          ?disabled=${this.disabledState}
+          ?required=${this.required} />`
+    );
+  }
+}
+
+function listYears(from = new Date().getFullYear()) {
+  return Array.from({ length: 101 }, (_, i) => from - 100 + i);
+}
+
+function listMonths() {
+  return Array.from({ length: 12 }, (_, i) => i + 1);
+}
+
+function listDays(currentYear, currentMonth) {
+  if (
+    typeof currentYear !== "undefined" &&
+    typeof currentMonth !== "undefined"
+  ) {
+    const number = new Date(currentYear, currentMonth, 0).getDate();
+    return Array.from({ length: number }, (_, i) => i + 1);
+  }
+  return [];
+}
+
+// Komplexerer Use Case: FACE durch Komposition aus mehreren form-associated
+// Elements (in diesem Beispiel: drei Selects) mit Wechselwirkungen - die Anzahl
+// der Tage im dritten Select hängt von den Werten der beiden anderen Selects
+// ab! Trotzdem ist die API identisch und wir erhalten wieder ein komplettes
+// FACE mit allem, was ein Formular-Element braucht.
+@defineFormElement("bad-date-picker")
+export class BadDatePicker extends BaseElement {
+  // Transformiert Value State (FormData) zu Submission State (String)
+  [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
     if (!valueState) { // ggf. null bei unültigem Input
       return "";
     }
@@ -49,8 +152,8 @@ export class BadDatePicker extends HTMLElement {
     return `${year}-${month}-${day}`;
   }
 
-  // Transformiert Submission State zu Value State
-  [formElement.SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
+  // Transformiert Submission State (String) zu Value State (FormData)
+  [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
     if (!submissionState) {
       return null;
     }
@@ -65,38 +168,52 @@ export class BadDatePicker extends HTMLElement {
     return valueState;
   }
 
-  // Rendert das Shadow DOM mit den drei <select> (Details egal)
-  @reactive({ initial: false })
-  render() {
+  @reactive()
+  #render() {
     const valueState = this.valueState;
     const currentYear = Number(valueState.get("year"));
     const currentMonth = Number(valueState.get("month"));
     const currentDay = Number(valueState.get("day"));
-    const years = Array.from({ length: 101 }, (_, i) => new Date().getFullYear() - 100 + i);
-    const months = Array.from({ length: 12 }, (_, i) => i + 1);
-    const days = (currentYear && currentMonth)
-      ? Array.from({ length: new Date(currentYear, currentMonth, 0).getDate() }, (_, i) => i + 1)
-      : [];
-    console.log("Render Shadow DOM with", { year: currentYear, month: currentMonth, day: currentDay, daysInMonth: days.length })
-    render(
-      this.#root,
-      html`
-      <form novalidate>
-        <select name="year" ?readonly=${this.readonly} ?disabled=${this.disabledState} ?required=${this.required} .value="${currentYear || ""}">
-          <option value="">--</option>
-          ${years.map((year) => html`<option ?selected=${year === currentYear}>${year}</option>`)}
-        </select>
-        /
-        <select name="month" ?readonly=${this.readonly} ?disabled=${this.disabledState} ?required=${this.required} .value="${currentMonth || ""}">
-          <option value="">--</option>
-          ${months.map((month) => html`<option ?selected=${month === currentMonth}>${month}</option>`)}
-        </select>
-        /
-        <select name="day" ?readonly=${this.readonly} ?disabled=${this.disabledState} ?required=${this.required} .value="${currentDay || ""}">
-          <option value="">--</option>
-          ${days.map((day) => html`<option ?selected=${day === currentDay}>${day}</option>`)}
-        </select>
-      </form>`
+    const years = listYears();
+    const months = listMonths();
+    const days = listDays(currentYear, currentMonth);
+    return this.render(
+    this.html`
+      <select
+        name="year"
+        ?readonly=${this.readonly}
+        ?disabled=${this.disabledState}
+        ?required=${this.required}
+        .value="${currentYear || ""}">
+        <option value="">--</option>
+        ${years.map((year) =>
+          this.html`<option ?selected=${year === currentYear}>${year}</option>`
+        )}
+      </select>
+      /
+      <select
+        name="month"
+        ?readonly=${this.readonly}
+        ?disabled=${this.disabledState}
+        ?required=${this.required}
+        .value="${currentMonth || ""}">
+        <option value="">--</option>
+        ${months.map((month) =>
+          this.html`<option ?selected=${month === currentMonth}>${month}</option>`
+        )}
+      </select>
+      /
+      <select
+        name="day"
+        ?readonly=${this.readonly}
+        ?disabled=${this.disabledState}
+        ?required=${this.required}
+        .value="${currentDay || ""}">
+        <option value="">--</option>
+        ${days.map((day) =>
+          this.html`<option ?selected=${day === currentDay}>${day}</option>`
+        )}
+      </select>`
     );
   }
 }

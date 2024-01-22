@@ -15,6 +15,11 @@ document.documentElement.addEventListener("click", ({ target }) => {
       target.innerHTML = "Enable fieldset"
     }
   }
+  if (target.matches("button.toggleReadonly")) {
+    for (element of document.querySelector("form").elements) {
+      element.readonly = !element.readonly;
+    }
+  }
 });
 </script>
 
@@ -25,7 +30,22 @@ document.documentElement.addEventListener("click", ({ target }) => {
     <legend>Fieldset</legend>
     <p>
       <label>
-        Custom bad date picker:
+        Integer Input:
+        <br>
+        <integer-input required name="int" value="7"></integer-input>
+      </label>
+    </p>
+    <p>
+      <label>
+        Color plus alpha:
+        <br>
+        <color-picker required name="color"></color-picker>
+      </label>
+    </p>
+    <p>
+      <label>
+        Bad date picker:
+        <br>
         <bad-date-picker required name="date"></bad-date-picker>
       </label>
     </p>
@@ -34,5 +54,6 @@ document.documentElement.addEventListener("click", ({ target }) => {
     <input type="submit" value="Submit">
     <input type="reset" value="Reset">
     <button type="button" class="toggleFieldset">Disable fieldset</button>
+    <button type="button" class="toggleReadonly">Toggle readonly</button>
   </p>
 </form>

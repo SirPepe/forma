@@ -7,7 +7,8 @@ import {
   listen,
   subscribe,
   formReset,
-  trigger
+  trigger,
+  define
 } from "@sirpepe/ornament";
 export * from "@sirpepe/ornament";
 
@@ -64,10 +65,6 @@ function assertFormState(input, description = "form state") {
   }
 }
 
-// Symbol for the getter that returns the current value state. Publicly
-// accessible as a property on the @formElement decorator function.
-const CURRENT_VALUE_STATE = Symbol();
-
 // Symbol for the method that serializes a value state to a submission state.
 // Publicly accessible as a property on the @formElement decorator function.
 const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
@@ -77,9 +74,10 @@ const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
 const SUBMISSION_STATE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
-export function formElement() {
+export function defineFormElement(tagName) {
   return function(Target) {
-    return class FormMixin extends Target {
+    @define(tagName)
+    class FormMixin extends Target {
       // The main idea behind this decorator is that custom form elements are
       // small nested forms, which may or may not have additional logic (for eg.
       // submit value serialization) attached to them. Therefore the shadow DOM
@@ -171,7 +169,7 @@ export function formElement() {
         });
       }
 
-      // Internal value state getter. Uses the entire inner form state al this
+      // Internal value state getter. Uses the entire inner form state as this
       // input's value state. If this getter is used before a form has been
       // rendered, #innerForm may be undefined, which needs to be handled.
       get currentValueState() {
@@ -217,7 +215,7 @@ export function formElement() {
       // Actually sets the form state and takes care of validation
       #runUpdateCycle(valueState = this.currentValueState ?? new FormData()) {
         console.group("Update cycle");
-        console.log("Compose new value state");
+        console.log("Compose new value state", valueState);
         // Set the form value for the next re-render
         this.#nextValueState = valueState;
         // Trigger re-renders
@@ -225,6 +223,7 @@ export function formElement() {
         trigger(this, "prop", "@formValue", valueState);
         // Update externally-visible validation state and form value
         const submissionState = this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
+        console.log("Compute submission state", submissionState);
         const internals = globalThis[CONFIG_KEY].getElementInternals(this);
         console.log("Set value state, submission state, and validity");
         internals.setFormValue(submissionState, valueState);
@@ -249,6 +248,7 @@ export function formElement() {
         console.group("Update to content attribute 'value'");
         // Do nothing if the dirty flag is set - user inputs have priority
         if (this.#DIRTY_VALUE_FLAG) {
+          console.info("Ignore, dirty flag is true");
           console.groupEnd();
           return;
         }
@@ -278,10 +278,9 @@ export function formElement() {
       // Expose the current "default value" as a readonly IDL attribute for
       // completeness' sake (a la React)
       get defaultValue() {
-        if (this.hasAttribute("value")) {
-          return this[SUBMISSION_STATE_TO_VALUE_STATE].call(this.getAttribute("value"));
-        }
-        return null;
+        return this[SUBMISSION_STATE_TO_VALUE_STATE](
+          this.getAttribute("value")
+        );
       }
 
       // Required for all form elements
@@ -390,8 +389,9 @@ export function formElement() {
           .setValidity({ customError: true }, message);
       }
     }
+    return FormMixin;
   };
 }
 
-formElement.VALUE_STATE_TO_SUBMISSION_STATE = VALUE_STATE_TO_SUBMISSION_STATE;
-formElement.SUBMISSION_STATE_TO_VALUE_STATE = SUBMISSION_STATE_TO_VALUE_STATE;
+defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE = VALUE_STATE_TO_SUBMISSION_STATE;
+defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE = SUBMISSION_STATE_TO_VALUE_STATE;
