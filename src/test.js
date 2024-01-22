@@ -1,25 +1,5 @@
-import { render as baseRender, html as baseHTML } from "uhtml";
-import { defineFormElement, attr, int, reactive } from "./src/membrane.js";
-
-class BaseElement extends HTMLElement {
-  #form;
-
-  constructor() {
-    super();
-    const shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
-    this.#form = document.createElement("form");
-    this.#form.noValidate = true;
-    shadow.append(this.#form);
-  }
-
-  render(content) {
-    return baseRender(this.#form, content);
-  }
-
-  html(...args) {
-    return baseHTML(...args);
-  }
-}
+import { defineFormElement, attr, int, reactive } from "./defineFormElement.js";
+import { BaseElement, listDays, listMonths, listYears } from "./lib.js";
 
 // Einfachster Use Case: Wrapper-Komponente über _ein_ form-associated Element.
 // Nützlich für Pattern Libraries oder Varianten von anderen Elementen (wie in
@@ -115,25 +95,6 @@ export class ColorPicker extends BaseElement {
   }
 }
 
-function listYears(from = new Date().getFullYear()) {
-  return Array.from({ length: 101 }, (_, i) => from - 100 + i);
-}
-
-function listMonths() {
-  return Array.from({ length: 12 }, (_, i) => i + 1);
-}
-
-function listDays(currentYear, currentMonth) {
-  if (
-    typeof currentYear !== "undefined" &&
-    typeof currentMonth !== "undefined"
-  ) {
-    const number = new Date(currentYear, currentMonth, 0).getDate();
-    return Array.from({ length: number }, (_, i) => i + 1);
-  }
-  return [];
-}
-
 // Komplexerer Use Case: FACE durch Komposition aus mehreren form-associated
 // Elements (in diesem Beispiel: drei Selects) mit Wechselwirkungen - die Anzahl
 // der Tage im dritten Select hängt von den Werten der beiden anderen Selects
@@ -141,6 +102,8 @@ function listDays(currentYear, currentMonth) {
 // FACE mit allem, was ein Formular-Element braucht.
 @defineFormElement("bad-date-picker")
 export class BadDatePicker extends BaseElement {
+  static DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;
+
   // Transformiert Value State (FormData) zu Submission State (String)
   [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
     if (!valueState) { // ggf. null bei unültigem Input
@@ -157,7 +120,7 @@ export class BadDatePicker extends BaseElement {
     if (!submissionState) {
       return null;
     }
-    const match = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/.exec(submissionState);
+    const match = BadDatePicker.DATE_RE.exec(submissionState);
     if (!match) {
       return null;
     }
