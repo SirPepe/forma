@@ -51,17 +51,15 @@ function type(x) {
   return typeof x;
 }
 
-function isFormState(input) {
-  return (
-    input instanceof File ||
-    input instanceof FormData ||
-    typeof input === "string"
-  );
-}
-
 function assertFormState(input, description = "form state") {
-  if (!isFormState(input)) {
-    throw new TypeError(`Expected ${description} to be File, FormData, or string, but got ${type(input)}`);
+  if (
+    !(input instanceof File) &&
+    !(input instanceof FormData) &&
+    typeof input !== "string"
+  ) {
+    throw new TypeError(
+      `Expected ${description} to be File, FormData, or string, but got ${type(input)}`
+    );
   }
 }
 
@@ -72,6 +70,12 @@ const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
 // Symbol for the method that deserializes a submission state to a value state.
 // Publicly accessible as a property on the @formElement decorator function.
 const SUBMISSION_STATE_TO_VALUE_STATE = Symbol();
+
+//
+const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
+
+//
+const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
 export function defineFormElement(tagName) {
@@ -157,8 +161,8 @@ export function defineFormElement(tagName) {
 
       // The initial form state needs to be set as soon as the element's inner
       // DOM initializes. Because this uses ornament to render shadow DOM, the
-      // right moment for this is probably when the init event gets dispatched
-      // (that is, right after the constructor has returned)
+      // right moment for this is when the init event gets dispatched (that is,
+      // right after the constructor has returned).
       constructor() {
         super();
         listen(this, "init", () => {
@@ -179,43 +183,70 @@ export function defineFormElement(tagName) {
         return new FormData();
       }
 
-      // Internal value state serializer
+      // Serialize internal value state to attribute value. May return null to
+      // indicate that the attribute should not be updated.
+      [VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
+        // Defer to base class implementation
+        if (VALUE_STATE_TO_ATTRIBUTE_VALUE in Target.prototype) {
+          const attributeValue = super[VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState);
+          if (attributeValue !== null && typeof attributeValue !== "string") {
+            throw new TypeError(
+              `Expected attribute value to be a string, but got ${type(attributeValue)}`
+            );
+          }
+          return attributeValue;
+        }
+        // Default: stringify the first entry in the value state
+        return String(valueState.entries().next().value ?? "");
+      }
+
+      // Deserialize attribute value to internal value state. May return null to
+      // indicate that the attribute value must be ignored.
+      [ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) {
+        // Defer to base class implementation
+        if (ATTRIBUTE_VALUE_TO_VALUE_STATE in Target.prototype) {
+          const valueState = super[ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue);
+          assertString(valueState, "value state");
+          return valueState;
+        }
+        // Default: use as the first entry in the value state, with the first
+        // form-associated element's name as the key.
+        const valueState = new FormData();
+        valueState.set(this.#innerForm.elements[0].name, attributeValue);
+        return valueState;
+      }
+
+      // Internal value state serializer.
       [VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
         // Defer to base class implementation
         if (VALUE_STATE_TO_SUBMISSION_STATE in Target.prototype) {
-          const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE](valueState) ?? "";
+          const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
           assertFormState(submissionState, "submission state");
           return submissionState;
         }
-        // Default implementation: if there is only one value in the value
-        // state, use it as the submission value, otherwise return the set of
-        // form data entries as-is
-        if (valueState instanceof FormData) {
-          const entries = Array.from(valueState.entries());
-          if (entries.length === 1) {
-            return entries[0][1];
-          }
-        }
-        return valueState; // Files, strings, or FormData with > 1 entries
+        // Default: stringify the first entry in the value state
+        return String(valueState.entries().next().value ?? "");
       }
 
       // Internal value state deserializer
       [SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
         // Defer to base class implementation
         if (SUBMISSION_STATE_TO_VALUE_STATE in Target.prototype) {
-          const valueState = super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState) ?? new FormData();
+          const valueState = super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState);
           assertFormState(valueState, "value state");
           return valueState;
         }
-        // Default implementation: assume that value state and submission state
-        // are supposed to be identical.
-        return submissionState;
+        // Default: use as the first entry in the value state, with the first
+        // form-associated element's name as the key.
+        const valueState = new FormData();
+        valueState.set(this.#innerForm.elements[0].name, submissionState);
+        return valueState;
       }
 
       // Actually sets the form state and takes care of validation
       #runUpdateCycle(valueState = this.currentValueState ?? new FormData()) {
         console.group("Update cycle");
-        console.log("Compose new value state", valueState);
+        console.log("New value state:", valueState);
         // Set the form value for the next re-render
         this.#nextValueState = valueState;
         // Trigger re-renders
@@ -270,17 +301,17 @@ export function defineFormElement(tagName) {
       // This assumes that the value IDL attribute should work with submission
       // states. Maybe this should be configurable.
       set value(newSubmissionState) {
+        console.group("Update to IDL attribute 'value'");
         this.#DIRTY_VALUE_FLAG = true;
         const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](newSubmissionState);
         this.#runUpdateCycle(valueState);
+        console.groupEnd();
       }
 
       // Expose the current "default value" as a readonly IDL attribute for
       // completeness' sake (a la React)
       get defaultValue() {
-        return this[SUBMISSION_STATE_TO_VALUE_STATE](
-          this.getAttribute("value")
-        );
+        return this.getAttribute("value");
       }
 
       // Required for all form elements

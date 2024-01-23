@@ -5,6 +5,13 @@
       {
         "version": "2023-05"
       }
+    ],
+    [
+      "@babel/plugin-transform-react-jsx",
+      {
+        "pragma": "h",
+        "pragmaFrag": "Fragment"
+      }
     ]
   ]
 }

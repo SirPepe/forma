@@ -2,7 +2,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Document</title>
-<script src="./src/test.js" type="module"></script>
+<script src="./src/index.js" type="module"></script>
 <script type="module">
 document.documentElement.addEventListener("click", ({ target }) => {
   if (target.matches("button.toggleFieldset")) {
@@ -22,6 +22,14 @@ document.documentElement.addEventListener("click", ({ target }) => {
   }
 });
 </script>
+<style>
+label > * {
+  display: inline-block;
+  background: #CCC;
+  padding: 0.25em;
+  border-radius: 0.1em;
+}
+</style>
 
 <h2>Test</h2>
 
@@ -30,7 +38,7 @@ document.documentElement.addEventListener("click", ({ target }) => {
     <legend>Fieldset</legend>
     <p>
       <label>
-        Integer Input:
+        Integer input:
         <br>
         <integer-input required name="int" value="7"></integer-input>
       </label>
@@ -57,3 +65,11 @@ document.documentElement.addEventListener("click", ({ target }) => {
     <button type="button" class="toggleReadonly">Toggle readonly</button>
   </p>
 </form>
+
+<script>
+// Custom Error-UX für native und non-native form-associated elements!
+// document.body.addEventListener("invalid", (evt) => {
+//   evt.preventDefault(); // native Fehleranzeige stopppen
+//   alert(evt.target.validationMessage); // DIY-Anzeige
+// }, { capture: true }); // invalid-Events bubblen nicht
+</script>

@@ -1,0 +1,39 @@
+import { defineFormElement, attr, int } from "../lib/defineFormElement.js";
+import { PreactBaseElement } from "../lib/lib.js";
+
+// Einfachster Use Case: Wrapper-Komponente über _ein_ form-associated Element.
+// Nützlich für Pattern Libraries oder Varianten von anderen Elementen (wie in
+// diesem Beispiel: int-Input aus normalem number-Input) Legt ein paar Attribute
+// des gewrappten Inputs fest (step, type) und reicht andere (min, max) aus den
+// eigenen Attributen an das gewrappte Input durch. Liefert ein komplettes FACE
+// mit allen Form-APIs, vollautomatischem internem State-Management (Dirty Flag,
+// Disabled-State via Fieldset, Form-Reset etc.) Formular-Validierung etc.
+// Umsetzung hier mit Preact, einfach weil's geht.
+
+@defineFormElement("integer-input")
+export class IntegerInput extends PreactBaseElement {
+  @attr(int({ nullable: true }))
+  accessor min = null;
+
+  @attr(int({ nullable: true }))
+  accessor max = null;
+
+  render() {
+    return (
+      <input
+        name="input"
+        step="1"
+        type="number"
+        min={this.min ?? ""}
+        max={this.max ?? ""}
+        value={this.valueState.get("input")}
+        defaultValue={this.defaultValue}
+        readonly={this.readonly}
+        disabled={this.disabledState}
+        required={this.required} />
+      );
+  }
+}
+
+// Boilerplate, kann mit besserem Buildprozess eliminiert werden
+import { h, Fragment } from "preact";
