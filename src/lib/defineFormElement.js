@@ -225,7 +225,7 @@ export function defineFormElement(tagName) {
           return submissionState;
         }
         // Default: stringify the first entry in the value state
-        return String(valueState.entries().next().value ?? "");
+        return String(valueState.entries().next().value?.[1] ?? "");
       }
 
       // Internal value state deserializer
