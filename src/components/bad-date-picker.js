@@ -1,5 +1,7 @@
 import { defineFormElement, reactive } from "../lib/defineFormElement.js";
-import { BaseElement } from "../lib/lib.js";
+import { BaseElement, FormLore } from "../lib/lib.js";
+
+const DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;
 
 function listYears(from = new Date().getFullYear()) {
   return Array.from({ length: 101 }, (_, i) => from - 100 + i);
@@ -20,6 +22,30 @@ function listDays(currentYear, currentMonth) {
   return [];
 }
 
+function toString(valueState) {
+  if (!valueState) {
+    return "";
+  }
+  const year = String(valueState.get("year") ?? 0).padStart(4, "0");
+  const month = String(valueState.get("month") ?? 0).padStart(2, "0");
+  const day = String(valueState.get("day") ?? 0).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fromString(value) {
+  if (!value) {
+    return null;
+  }
+  const match = DATE_RE.exec(String(value));
+  if (!match) {
+    return null;
+  }
+  return FormLore.fromEntries([
+    ["year", match[1] ?? 0],
+    ["month", match[2] ?? 0],
+    ["day", match[3] ?? 0],
+  ]);
+}
 
 // Komplexerer Use Case: FACE durch Komposition aus mehreren form-associated
 // Elements (in diesem Beispiel: drei Selects) mit Wechselwirkungen - die Anzahl
@@ -28,33 +54,20 @@ function listDays(currentYear, currentMonth) {
 // FACE mit allem, was ein Formular-Element braucht.
 @defineFormElement("bad-date-picker")
 export class BadDatePicker extends BaseElement {
-  static DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;
-
-  // Transformiert Value State (FormData) zu Submission State (String)
   [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
-    if (!valueState) { // ggf. null bei unültigem Input
-      return "";
-    }
-    const year = String(valueState.get("year")).padStart(4, "0");
-    const month = String(valueState.get("month")).padStart(2, "0");
-    const day = String(valueState.get("day")).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return toString(valueState);
   }
 
-  // Transformiert Submission State (String) zu Value State (FormData)
-  [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
-    if (!submissionState) {
-      return null;
-    }
-    const match = BadDatePicker.DATE_RE.exec(submissionState);
-    if (!match) {
-      return null;
-    }
-    const valueState = new FormData();
-    valueState.set("year", match[1]);
-    valueState.set("month", match[2]);
-    valueState.set("day", match[3]);
-    return valueState;
+  [defineFormElement.VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
+    return toString(valueState);
+  }
+
+  [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](input) {
+    return fromString(input);
+  }
+
+  [defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE](input) {
+    return fromString(input);
   }
 
   @reactive()

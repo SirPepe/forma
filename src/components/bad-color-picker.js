@@ -1,9 +1,33 @@
 import { defineFormElement, reactive } from "../lib/defineFormElement.js";
+import { FormLore } from "../lib/lib.js";
+
+const ALPHA_COLOR_RE = /^(?<rgb>#[a-fA-F0-9]{6})(?<alpha>[a-fA-F0-9]{2})$/;
+
+function toString(valueState) {
+  if (!valueState) {
+    return "";
+  }
+  const alpha = Number(valueState.get("alpha")).toString(16).padStart(2, "0");
+  return `${valueState.get("rgb")}${alpha}`;
+}
+
+function fromString(input) {
+  if (!input) {
+    return null;
+  }
+  const match = ALPHA_COLOR_RE.exec(String(input));
+  if (!match) {
+    return null;
+  }
+  return FormLore.fromEntries([
+    ["rgb", match.groups.rgb],
+    ["alpha", Number.parseInt(match.groups.alpha, 16)],
+  ]);
+}
 
 @defineFormElement("color-picker")
 export class ColorPicker extends HTMLElement {
   #shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
-  static ALPHA_COLOR_RE = /^(?<rgb>#[a-fA-F0-9]{6})(?<alpha>[a-fA-F0-9]{2})$/;
 
   constructor() {
     super();
@@ -14,25 +38,19 @@ export class ColorPicker extends HTMLElement {
   }
 
   [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
-    if (!valueState) {
-      return "";
-    }
-    const alpha = Number(valueState.get("alpha")).toString(16).padStart(2, "0");
-    return `${valueState.get("rgb")}${alpha}`;
+    return toString(valueState);
   }
 
   [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
-    if (!submissionState) {
-      return null;
-    }
-    const match = ColorPicker.ALPHA_COLOR_RE.exec(submissionState);
-    if (!match) {
-      return null;
-    }
-    const valueState = new FormData();
-    valueState.set("rgb", match.groups.rgb);
-    valueState.set("alpha", Number.parseInt(match.groups.alpha, 16));
-    return valueState;
+    return fromString(submissionState);
+  }
+
+  [defineFormElement.VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
+    return toString(valueState);
+  }
+
+  [defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE](input) {
+    return fromString(input);
   }
 
   @reactive()

@@ -1,5 +1,5 @@
 import { defineFormElement, attr, int } from "../lib/defineFormElement.js";
-import { PreactBaseElement } from "../lib/lib.js";
+import { FormLore, PreactBaseElement } from "../lib/lib.js";
 
 // Einfachster Use Case: Wrapper-Komponente über _ein_ form-associated Element.
 // Nützlich für Pattern Libraries oder Varianten von anderen Elementen (wie in
@@ -17,6 +17,12 @@ export class IntegerInput extends PreactBaseElement {
 
   @attr(int({ nullable: true }))
   accessor max = null;
+
+  [defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) {
+    return FormLore.fromEntries([
+      ["input", Number.parseInt(attributeValue, 10) || 0],
+    ]);
+  }
 
   render() {
     return (

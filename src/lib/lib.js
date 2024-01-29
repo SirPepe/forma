@@ -2,6 +2,17 @@ import { render as uhtmlRender, html as uhtmlHTML } from "uhtml";
 import { render as preactRender } from "preact";
 import { reactive } from "@sirpepe/ornament";
 
+// Lore = Data + some extra features
+export class FormLore extends FormData {
+  static fromEntries(entries = []) {
+    const instance = new FormLore();
+    for (const [key, value] of entries) {
+      instance.append(key, value);
+    }
+    return instance;
+  }
+}
+
 export class BaseElement extends HTMLElement {
   #form;
 

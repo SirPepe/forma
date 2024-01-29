@@ -71,10 +71,14 @@ const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
 // Publicly accessible as a property on the @formElement decorator function.
 const SUBMISSION_STATE_TO_VALUE_STATE = Symbol();
 
-//
+// Symbol for the method that serializes a value state to an attribute value.
+// Used to define the IDL attribute getter. Publicly accessible as a property on
+// the @formElement decorator function.
 const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
 
-//
+// Symbol for the method that deserializes an attribute value to a value state.
+// Used to define the IDL attribute getter. Publicly accessible as a property on
+// the @formElement decorator function.
 const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
@@ -183,13 +187,14 @@ export function defineFormElement(tagName) {
         return new FormData();
       }
 
-      // Serialize internal value state to attribute value. May return null to
-      // indicate that the attribute should not be updated.
+      // Serialize internal value state to attribute value. Used to create the
+      // value IDL getter's value. For consistency's sake, this must return a
+      // string or null (which is turned into an empty string).
       [VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
         // Defer to base class implementation
         if (VALUE_STATE_TO_ATTRIBUTE_VALUE in Target.prototype) {
-          const attributeValue = super[VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState);
-          if (attributeValue !== null && typeof attributeValue !== "string") {
+          const attributeValue = super[VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) ?? "";
+          if (typeof attributeValue !== "string") {
             throw new TypeError(
               `Expected attribute value to be a string, but got ${type(attributeValue)}`
             );
@@ -197,16 +202,15 @@ export function defineFormElement(tagName) {
           return attributeValue;
         }
         // Default: stringify the first entry in the value state
-        return String(valueState.entries().next().value ?? "");
+        return String(valueState.entries().next().value?.[1] ?? "");
       }
 
-      // Deserialize attribute value to internal value state. May return null to
-      // indicate that the attribute value must be ignored.
+      // Deserialize attribute value to internal value state.
       [ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) {
         // Defer to base class implementation
         if (ATTRIBUTE_VALUE_TO_VALUE_STATE in Target.prototype) {
-          const valueState = super[ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue);
-          assertString(valueState, "value state");
+          const valueState = super[ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) ?? new FormData();
+          assertFormState(valueState);
           return valueState;
         }
         // Default: use as the first entry in the value state, with the first
@@ -232,7 +236,7 @@ export function defineFormElement(tagName) {
       [SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
         // Defer to base class implementation
         if (SUBMISSION_STATE_TO_VALUE_STATE in Target.prototype) {
-          const valueState = super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState);
+          const valueState = super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState) ?? new FormData();
           assertFormState(valueState, "value state");
           return valueState;
         }
@@ -295,15 +299,15 @@ export function defineFormElement(tagName) {
       // This assumes that the value IDL attribute should return the submission
       // state. Maybe this should be configurable.
       get value() {
-        return this[VALUE_STATE_TO_SUBMISSION_STATE](this.currentValueState);
+        return this[VALUE_STATE_TO_ATTRIBUTE_VALUE](this.currentValueState);
       }
 
       // This assumes that the value IDL attribute should work with submission
       // states. Maybe this should be configurable.
-      set value(newSubmissionState) {
+      set value(newAttributeValue) {
         console.group("Update to IDL attribute 'value'");
         this.#DIRTY_VALUE_FLAG = true;
-        const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](newSubmissionState);
+        const valueState = this[ATTRIBUTE_VALUE_TO_VALUE_STATE](newAttributeValue);
         this.#runUpdateCycle(valueState);
         console.groupEnd();
       }
@@ -428,3 +432,7 @@ defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE =
   VALUE_STATE_TO_SUBMISSION_STATE;
 defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE =
   SUBMISSION_STATE_TO_VALUE_STATE;
+defineFormElement.VALUE_STATE_TO_ATTRIBUTE_VALUE =
+  VALUE_STATE_TO_ATTRIBUTE_VALUE;
+defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE =
+  ATTRIBUTE_VALUE_TO_VALUE_STATE;
