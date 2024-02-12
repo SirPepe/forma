@@ -321,6 +321,16 @@ export function defineFormElement(tagName) {
       // Required for all form elements
       static formAssociated = true;
 
+      // All form-associated elements with the exception of <img> have an IDL
+      // attribute type - even <textarea> and <select>! This enables authors to
+      // distinguish form controls by a single common property and to keep this
+      // working, custom form controls should also support this. The following
+      // is just a default implementation that every form element can override
+      // when needed.
+      get type() {
+        return this.tagName.toLowerCase();
+      }
+
       // Any respectable form element needs a name content attribute
       @attr(string())
       accessor name = "";
