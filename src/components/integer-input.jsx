@@ -1,5 +1,5 @@
-import { defineFormElement, attr, int } from "../lib/defineFormElement.js";
-import { FormLore, PreactBaseElement } from "../lib/lib.js";
+import { defineFormElement, FormLore, attr, int } from "../lib/defineFormElement.js";
+import { BaseElement } from "../lib/preactBaseElement.js";
 
 // Einfachster Use Case: Wrapper-Komponente über _ein_ form-associated Element.
 // Nützlich für Pattern Libraries oder Varianten von anderen Elementen (wie in
@@ -11,7 +11,7 @@ import { FormLore, PreactBaseElement } from "../lib/lib.js";
 // Umsetzung hier mit Preact, einfach weil's geht.
 
 @defineFormElement("integer-input")
-export class IntegerInput extends PreactBaseElement {
+export class IntegerInput extends BaseElement {
   @attr(int({ nullable: true }))
   accessor min = null;
 
@@ -25,6 +25,7 @@ export class IntegerInput extends PreactBaseElement {
   }
 
   render() {
+    console.log("Rönder");
     return (
       <input
         name="input"
@@ -34,7 +35,7 @@ export class IntegerInput extends PreactBaseElement {
         max={this.max ?? ""}
         value={this.valueState.get("input")}
         defaultValue={this.defaultValue}
-        readonly={this.readonly}
+        readOnly={this.readonly}
         disabled={this.disabledState}
         required={this.required} />
       );

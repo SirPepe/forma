@@ -1,5 +1,5 @@
-import { defineFormElement, reactive } from "../lib/defineFormElement.js";
-import { BaseElement, FormLore } from "../lib/lib.js";
+import { defineFormElement, FormLore } from "../lib/defineFormElement.js";
+import { BaseElement } from "../lib/uhtmlBaseElement.js";
 
 const DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;
 
@@ -70,8 +70,7 @@ export class BadDatePicker extends BaseElement {
     return fromString(input);
   }
 
-  @reactive()
-  #render() {
+  render() {
     const valueState = this.valueState;
     const currentYear = Number(valueState.get("year"));
     const currentMonth = Number(valueState.get("month"));
@@ -79,43 +78,47 @@ export class BadDatePicker extends BaseElement {
     const years = listYears();
     const months = listMonths();
     const days = listDays(currentYear, currentMonth);
-    return this.render(
-    this.html`
+    return this.html`
       <select
         name="year"
-        ?readonly=${this.readonly}
+        ?readOnly=${this.readOnly}
         ?disabled=${this.disabledState}
         ?required=${this.required}
         .value="${currentYear || ""}">
         <option value="">--</option>
-        ${years.map((year) =>
-          this.html`<option ?selected=${year === currentYear}>${year}</option>`
+        ${years.map(
+          (year) =>
+            this
+              .html`<option ?selected=${year === currentYear}>${year}</option>`,
         )}
       </select>
       /
       <select
         name="month"
-        ?readonly=${this.readonly}
+        ?readOnly=${this.readOnly}
         ?disabled=${this.disabledState}
         ?required=${this.required}
         .value="${currentMonth || ""}">
         <option value="">--</option>
-        ${months.map((month) =>
-          this.html`<option ?selected=${month === currentMonth}>${month}</option>`
+        ${months.map(
+          (month) =>
+            this
+              .html`<option ?selected=${month === currentMonth}>${month}</option>`,
         )}
       </select>
       /
       <select
         name="day"
-        ?readonly=${this.readonly}
+        ?readOnly=${this.readOnly}
         ?disabled=${this.disabledState}
         ?required=${this.required}
         .value="${currentDay || ""}">
         <option value="">--</option>
-        ${days.map((day) =>
-          this.html`<option ?selected=${day === currentDay}>${day}</option>`
+        ${days.map(
+          (day) =>
+            this.html`<option ?selected=${day === currentDay}>${day}</option>`,
         )}
-      </select>`
-    );
+      </select>
+    `;
   }
 }
