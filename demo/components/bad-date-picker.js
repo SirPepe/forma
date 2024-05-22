@@ -1,5 +1,15 @@
-import { defineFormElement, FormLore } from "../lib/defineFormElement.js";
-import { BaseElement } from "../lib/uhtmlBaseElement.js";
+// Form component built from three native <select> with interdependent behavior:
+// the number of days in the third <select> depends on the other two <select>,
+// but the API remains comparatively simple.
+
+// Notable complications:
+//   * built with uhtml
+//   * the uhtml base class triggers the first render before the initial
+//     element set-up, but everything remains properly synced up
+
+import { define } from "@sirpepe/ornament";
+import { forma, FormLore } from "../../src";
+import { BaseElement } from "../uhtmlBaseElement.js";
 
 const DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;
 
@@ -47,34 +57,29 @@ function fromString(value) {
   ]);
 }
 
-// Komplexerer Use Case: FACE durch Komposition aus mehreren form-associated
-// Elements (in diesem Beispiel: drei Selects) mit Wechselwirkungen - die Anzahl
-// der Tage im dritten Select hängt von den Werten der beiden anderen Selects
-// ab! Trotzdem ist die API identisch und wir erhalten wieder ein komplettes
-// FACE mit allem, was ein Formular-Element braucht.
-@defineFormElement("bad-date-picker")
+@define("bad-date-picker")
+@forma()
 export class BadDatePicker extends BaseElement {
-  [defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
+  [forma.VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
     return toString(valueState);
   }
 
-  [defineFormElement.VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
+  [forma.VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
     return toString(valueState);
   }
 
-  [defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE](input) {
+  [forma.SUBMISSION_STATE_TO_VALUE_STATE](input) {
     return fromString(input);
   }
 
-  [defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE](input) {
+  [forma.ATTRIBUTE_VALUE_TO_VALUE_STATE](input) {
     return fromString(input);
   }
 
   render() {
-    const valueState = this.valueState;
-    const currentYear = Number(valueState.get("year"));
-    const currentMonth = Number(valueState.get("month"));
-    const currentDay = Number(valueState.get("day"));
+    const currentYear = Number(this[forma.VALUE_STATE].get("year"));
+    const currentMonth = Number(this[forma.VALUE_STATE].get("month"));
+    const currentDay = Number(this[forma.VALUE_STATE].get("day"));
     const years = listYears();
     const months = listMonths();
     const days = listDays(currentYear, currentMonth);
@@ -82,7 +87,7 @@ export class BadDatePicker extends BaseElement {
       <select
         name="year"
         ?readOnly=${this.readOnly}
-        ?disabled=${this.disabledState}
+        ?disabled=${this[forma.DISABLED_STATE]}
         ?required=${this.required}
         .value="${currentYear || ""}">
         <option value="">--</option>
@@ -96,7 +101,7 @@ export class BadDatePicker extends BaseElement {
       <select
         name="month"
         ?readOnly=${this.readOnly}
-        ?disabled=${this.disabledState}
+        ?disabled=${this[forma.DISABLED_STATE]}
         ?required=${this.required}
         .value="${currentMonth || ""}">
         <option value="">--</option>
@@ -110,7 +115,7 @@ export class BadDatePicker extends BaseElement {
       <select
         name="day"
         ?readOnly=${this.readOnly}
-        ?disabled=${this.disabledState}
+        ?disabled=${this[forma.DISABLED_STATE]}
         ?required=${this.required}
         .value="${currentDay || ""}">
         <option value="">--</option>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document</title>
+
+<script type="module">
+  import "./components/integer-input.jsx";
+  import "./components/color-picker.js";
+  import "./components/bad-date-picker.js";
+
+  document.documentElement.addEventListener("click", ({ target }) => {
+    if (target.matches("button.toggleFieldset")) {
+      const fs = document.querySelector("fieldset");
+      if (fs.disabled) {
+        fs.disabled = false;
+        target.innerHTML = "Disable fieldset"
+      } else {
+        fs.disabled = true;
+        target.innerHTML = "Enable fieldset"
+      }
+    }
+
+    if (target.matches("button.toggleReadonly")) {
+      for (element of document.querySelector("form").elements) {
+        element.readonly = !element.readonly;
+      }
+    }
+  });
+</script>
+
+<style>
+  input[type=text],
+  integer-input,
+  color-picker,
+  bad-date-picker {
+    display: inline-block;
+    border: 0.25em solid #CCC;
+    border-radius: 0.1em;
+  }
+  label:has([required]) span::after {
+    content: " *";
+    color: red;
+  }
+  label :invalid {
+    outline: 1px solid red;
+  }
+</style>
+
+<h2>Test</h2>
+
+<form>
+  <fieldset>
+    <legend>Fieldset</legend>
+    <p>
+      <label>
+        <span>Plain text field</span>
+        <br>
+        <input type="text" required name="text" value="Hello">
+      </label>
+    </p>
+    <p>
+      <label>
+        <span>Integer input</span>
+        <br>
+        <integer-input required name="int" value="7"></integer-input>
+      </label>
+    </p>
+    <p>
+      <label>
+        <span>Color plus alpha</span>
+        <br>
+        <color-picker value="#CC0000EE" required name="color"></color-picker>
+      </label>
+    </p>
+    <p>
+      <label>
+        <span>Bad date picker</span>
+        <br>
+        <bad-date-picker value="2001-11-09" required name="date"></bad-date-picker>
+      </label>
+    </p>
+  </fieldset>
+  <p>
+    <input type="submit" value="Submit">
+    <input type="reset" value="Reset">
+    <button type="button" class="toggleFieldset">Disable fieldset</button>
+    <button type="button" class="toggleReadonly">Toggle readonly</button>
+  </p>
+</form>

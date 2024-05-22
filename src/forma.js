@@ -8,9 +8,8 @@ import {
   subscribe,
   formReset,
   trigger,
-  define,
+  enhance,
 } from "@sirpepe/ornament";
-export * from "@sirpepe/ornament";
 
 const INTERNALS_MAP = new WeakMap();
 
@@ -25,17 +24,6 @@ const defaultOptions = {
     return internals;
   },
 };
-
-// Lore = Data + some extra features
-export class FormLore extends FormData {
-  static fromEntries(entries = []) {
-    const instance = new FormLore();
-    for (const [key, value] of entries) {
-      instance.append(key, value);
-    }
-    return instance;
-  }
-}
 
 function type(x) {
   if (x === null) {
@@ -59,36 +47,43 @@ function assertFormState(input, description = "form state") {
   }
 }
 
+// Symbol used to store non-public state values that are of interest to
+// component authors, such as the computed disabled state
+const VALUE_STATE = Symbol();
+const DISABLED_STATE = Symbol();
+
 // Symbol for the method that serializes a value state to a submission state.
-// Publicly accessible as a property on the @formElement decorator function.
+// Used to compute the submission state from the inner form. Publicly accessible
+// as a property on the @forma decorator function.
 const VALUE_STATE_TO_SUBMISSION_STATE = Symbol();
 
 // Symbol for the method that deserializes a submission state to a value state.
-// Publicly accessible as a property on the @formElement decorator function.
+// Publicly accessible as a property on the @forma decorator function. Used to
+// compute the value state from the "value" content attribute.
 const SUBMISSION_STATE_TO_VALUE_STATE = Symbol();
 
 // Symbol for the method that serializes a value state to an attribute value.
 // Used to define the IDL attribute getter. Publicly accessible as a property on
-// the @formElement decorator function.
+// the @forma decorator function.
 const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
 
 // Symbol for the method that deserializes an attribute value to a value state.
-// Used to define the IDL attribute getter. Publicly accessible as a property on
-// the @formElement decorator function.
+// Used to define the IDL attribute setter. Publicly accessible as a property on
+// the @forma decorator function.
 const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
-export function defineFormElement(tagName, options = defaultOptions) {
-  return function (target) {
-    @define(tagName)
-    class FormMixin extends target {
-      // The main idea behind this decorator is that custom form elements are
-      // small nested forms, which may or may not have additional logic (for eg.
+export function forma({ getElementInternals } = defaultOptions) {
+  return function (Target) {
+    @enhance()
+    class FormMixin extends Target {
+      // The main idea behind @forma is that custom form elements are small
+      // nested forms, which may or may not have additional logic (for eg.
       // submit value serialization) attached to them. Therefore the shadow DOM
       // must always contain a form element, which this getter makes easily
       // accessible.
       get #innerForm() {
-        return options.getElementInternals(this).shadowRoot.querySelector("form");
+        return getElementInternals(this).shadowRoot.querySelector("form");
       }
 
       // Only true when the element has been interacted with by the user since
@@ -128,15 +123,10 @@ export function defineFormElement(tagName, options = defaultOptions) {
         return [{}, "", undefined];
       }
 
-      // Useful when rendering shadow DOM
-      get valueState() {
-        return this.#nextValueState;
-      }
-
       // The inner form can technically be submitted by itself, eg. if the user
       // hits enter while an input element is focussed. The following turns
       // nested form submission into submitting the element's form owner.
-      @subscribe((el) => options.getElementInternals(el).shadowRoot, "submit")
+      @subscribe((el) => getElementInternals(el).shadowRoot, "submit")
       handleInnerSubmit(evt) {
         evt.preventDefault();
         if (this.form?.reportValidity()) {
@@ -146,10 +136,10 @@ export function defineFormElement(tagName, options = defaultOptions) {
 
       // Input value change detection. Whenever something in the shadow root
       // receives new input, the form value for this elements gets an update.
-      @subscribe((el) => options.getElementInternals(el).shadowRoot, "input")
+      @subscribe((el) => getElementInternals(el).shadowRoot, "input")
       handleInnerInputEvents(evt) {
         console.groupCollapsed(
-          `Input event on <${evt.target.tagName.toLowerCase()} name="${evt.target.name}">`,
+          `${this.tagName}: input event on <${evt.target.tagName.toLowerCase()} name="${evt.target.name}">`,
         );
         this.#runUpdateCycle();
         this.#DIRTY_VALUE_FLAG = true;
@@ -160,7 +150,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // attribute, if it exists) and reset the dirty flag.
       @formReset()
       handleFormReset() {
-        console.groupCollapsed(`Form reset`);
+        console.groupCollapsed(`${this.tagName}: form reset`);
         const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](
           this.getAttribute("value"),
         );
@@ -175,7 +165,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       constructor() {
         super();
         listen(this, "init", () => {
-          console.groupCollapsed(`Component ${target.name} init`);
+          console.groupCollapsed(`${this.tagName}: component init`);
           console.log("Copying initial form state");
           this.#runUpdateCycle();
           console.groupEnd();
@@ -197,7 +187,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // string or null (which is turned into an empty string).
       [VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) {
         // Defer to base class implementation, if available
-        if (VALUE_STATE_TO_ATTRIBUTE_VALUE in target.prototype) {
+        if (VALUE_STATE_TO_ATTRIBUTE_VALUE in Target.prototype) {
           const attributeValue =
             super[VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) ?? "";
           if (typeof attributeValue !== "string") {
@@ -214,7 +204,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // Deserialize attribute value to internal value state.
       [ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) {
         // Defer to base class implementation, if available
-        if (ATTRIBUTE_VALUE_TO_VALUE_STATE in target.prototype) {
+        if (ATTRIBUTE_VALUE_TO_VALUE_STATE in Target.prototype) {
           const valueState =
             super[ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) ??
             new FormData();
@@ -224,14 +214,16 @@ export function defineFormElement(tagName, options = defaultOptions) {
         // Default: use as the first entry in the value state, with the first
         // form-associated element's name as the key.
         const valueState = new FormData();
-        valueState.set(this.#innerForm.elements[0].name, attributeValue);
+        if (this.#innerForm?.elements?.[0]) {
+          valueState.set(this.#innerForm.elements[0].name, attributeValue);
+        }
         return valueState;
       }
 
       // Internal value state serializer.
       [VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
         // Defer to base class implementation, if available
-        if (VALUE_STATE_TO_SUBMISSION_STATE in target.prototype) {
+        if (VALUE_STATE_TO_SUBMISSION_STATE in Target.prototype) {
           const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE](
             valueState,
           );
@@ -245,7 +237,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // Internal value state deserializer
       [SUBMISSION_STATE_TO_VALUE_STATE](submissionState) {
         // Defer to base class implementation, if available
-        if (SUBMISSION_STATE_TO_VALUE_STATE in target.prototype) {
+        if (SUBMISSION_STATE_TO_VALUE_STATE in Target.prototype) {
           const valueState =
             super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState) ??
             new FormData();
@@ -255,13 +247,15 @@ export function defineFormElement(tagName, options = defaultOptions) {
         // Default: use as the first entry in the value state, with the first
         // form-associated element's name as the key.
         const valueState = new FormData();
-        valueState.set(this.#innerForm.elements[0].name, submissionState);
+        if (this.#innerForm?.elements?.[0]) {
+          valueState.set(this.#innerForm.elements[0].name, submissionState);
+        }
         return valueState;
       }
 
       // Actually sets the form state and takes care of validation
       #runUpdateCycle(valueState = this.#currentValueState ?? new FormData()) {
-        console.groupCollapsed("Update cycle");
+        console.groupCollapsed(`${this.tagName}: update cycle`);
         console.log("New value state:", valueState);
         // Set the form value for the next re-render
         this.#nextValueState = valueState;
@@ -272,7 +266,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
         const submissionState =
           this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
         console.log("Compute submission state", submissionState);
-        const internals = options.getElementInternals(this);
+        const internals = getElementInternals(this);
         console.log("Set value state, submission state, and validity");
         internals.setFormValue(submissionState, valueState);
         const [validity, message, anchor] = this.#composeValidity();
@@ -293,7 +287,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
         if (name !== "value") {
           return;
         }
-        console.groupCollapsed("Update to content attribute 'value'");
+        console.groupCollapsed(`${this.tagName}: update to content attribute 'value'`);
         // Do nothing if the dirty flag is set - user inputs have priority
         if (this.#DIRTY_VALUE_FLAG) {
           console.info("Ignore, dirty flag is true");
@@ -301,9 +295,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
           return;
         }
         console.log("Attribute value:", newValue);
-        const valueState = newValue
-          ? this[SUBMISSION_STATE_TO_VALUE_STATE](newValue)
-          : this.#currentValueState;
+        const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](newValue);
         console.log("Value state:", valueState);
         this.#runUpdateCycle(valueState);
         console.groupEnd();
@@ -318,7 +310,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // This assumes that the value IDL attribute should work with submission
       // states. Maybe this should be configurable.
       set value(newAttributeValue) {
-        console.groupCollapsed("Update to IDL attribute 'value'");
+        console.groupCollapsed(`${this.tagName}: update to IDL attribute 'value'`);
         this.#DIRTY_VALUE_FLAG = true;
         const valueState =
           this[ATTRIBUTE_VALUE_TO_VALUE_STATE](newAttributeValue);
@@ -328,12 +320,22 @@ export function defineFormElement(tagName, options = defaultOptions) {
 
       // Expose the current "default value" (content attribute "value") as an
       // IDL attribute
+      // TODO: this does not work for textarea-like elements
       get defaultValue() {
         return this.getAttribute("value");
       }
 
+      // TODO: this does not work for textarea-like elements
       set defaultValue(value) {
-        return this.setAttribute("value", String(value));
+        console.groupCollapsed(`${this.tagName}: update to IDL attribute 'defaultValue'`);
+        if (!this.#DIRTY_VALUE_FLAG) {
+          console.log("Dirty flag is not true, updating value state");
+          const valueState =
+            this[ATTRIBUTE_VALUE_TO_VALUE_STATE](String(value));
+          this.#runUpdateCycle(valueState);
+        }
+        this.setAttribute("value", String(value));
+        console.groupEnd();
       }
 
       // Required for all form elements
@@ -346,6 +348,7 @@ export function defineFormElement(tagName, options = defaultOptions) {
       // is just a default implementation that every form element can override
       // when needed.
       get type() {
+        // TODO: defer to base implementation
         return this.tagName.toLowerCase();
       }
 
@@ -401,61 +404,65 @@ export function defineFormElement(tagName, options = defaultOptions) {
         return this.#attrDisabled;
       }
 
-      // The actual "disabled" state composed from the IDL attribute and the
-      // formDisabled state. This is a non-standard API extension.
-      get disabledState() {
-        return this.#disabledState;
+      // This IDL attribute only has a getter powered by element internals. The
+      // content attribute "form" works implicitly.
+      get form() {
+        return getElementInternals(this).form;
       }
 
-      // This is actually just a getter, with the content attribute "form"
-      // working implicitly
-      get form() {
-        return options.getElementInternals(this).form;
-      }
+      // The following APIs are just boilerplate that expose data or methods
+      // from the element internals
 
       get labels() {
-        return options.getElementInternals(this).labels;
+        return getElementInternals(this).labels;
       }
 
       get willValidate() {
-        return options.getElementInternals(this).willValidate;
+        return getElementInternals(this).willValidate;
       }
 
       get validity() {
-        return options.getElementInternals(this).validity;
+        return getElementInternals(this).validity;
       }
 
       get validationMessage() {
-        return options.getElementInternals(this)
+        return getElementInternals(this)
           .validationMessage;
       }
 
       checkValidity() {
-        return options.getElementInternals(this).checkValidity();
+        return getElementInternals(this).checkValidity();
       }
 
       reportValidity() {
-        return options.getElementInternals(
-          this,
-        ).reportValidity();
+        return getElementInternals(this).reportValidity();
       }
 
       setCustomValidity(message) {
-        return options.getElementInternals(this).setValidity(
+        return getElementInternals(this).setValidity(
           { customError: true },
           message,
         );
+      }
+
+      // The following getters expose internal states that are useful for
+      // component authors, but to to component users.
+
+      get [VALUE_STATE]() {
+        return this.#nextValueState; // the current value state
+      }
+
+      get [DISABLED_STATE]() {
+        return this.#disabledState; // the current composed disabled state
       }
     }
     return FormMixin;
   };
 }
 
-defineFormElement.VALUE_STATE_TO_SUBMISSION_STATE =
-  VALUE_STATE_TO_SUBMISSION_STATE;
-defineFormElement.SUBMISSION_STATE_TO_VALUE_STATE =
-  SUBMISSION_STATE_TO_VALUE_STATE;
-defineFormElement.VALUE_STATE_TO_ATTRIBUTE_VALUE =
-  VALUE_STATE_TO_ATTRIBUTE_VALUE;
-defineFormElement.ATTRIBUTE_VALUE_TO_VALUE_STATE =
-  ATTRIBUTE_VALUE_TO_VALUE_STATE;
+forma.VALUE_STATE_TO_SUBMISSION_STATE = VALUE_STATE_TO_SUBMISSION_STATE;
+forma.SUBMISSION_STATE_TO_VALUE_STATE = SUBMISSION_STATE_TO_VALUE_STATE;
+forma.VALUE_STATE_TO_ATTRIBUTE_VALUE = VALUE_STATE_TO_ATTRIBUTE_VALUE;
+forma.ATTRIBUTE_VALUE_TO_VALUE_STATE = ATTRIBUTE_VALUE_TO_VALUE_STATE;
+forma.VALUE_STATE = VALUE_STATE;
+forma.DISABLED_STATE = DISABLED_STATE;
