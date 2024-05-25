@@ -1,5 +1,5 @@
 import { reactive, connected } from "@sirpepe/ornament";
-import { render as preactRender } from "preact";
+import { render } from "preact";
 
 export class BaseElement extends HTMLElement {
   #shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
@@ -14,6 +14,6 @@ export class BaseElement extends HTMLElement {
   @connected()
   @reactive()
   #render() {
-    preactRender(this.render(), this.#form);
+    render(this.render(), this.#form);
   }
 }

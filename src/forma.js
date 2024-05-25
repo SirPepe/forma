@@ -4,16 +4,18 @@ import {
   bool,
   string,
   formDisabled,
-  listen,
+  init,
   subscribe,
   formReset,
   trigger,
   enhance,
+  connected,
 } from "@sirpepe/ornament";
 
 const INTERNALS_MAP = new WeakMap();
 
 const defaultOptions = {
+  forceFormUpdates: false,
   getElementInternals(element) {
     let internals = INTERNALS_MAP.get(element);
     if (internals) {
@@ -73,7 +75,11 @@ const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
 const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
-export function forma({ getElementInternals } = defaultOptions) {
+export function forma(options = {}) {
+  const { getElementInternals, forceFormUpdates } = {
+    ...defaultOptions,
+    options,
+  };
   return function (Target) {
     @enhance()
     class FormMixin extends Target {
@@ -161,15 +167,15 @@ export function forma({ getElementInternals } = defaultOptions) {
       // The initial form state needs to be set as soon as the element's inner
       // DOM initializes. Because this uses ornament to render shadow DOM, the
       // right moment for this is when the init event gets dispatched (that is,
-      // right after the constructor has returned).
-      constructor() {
-        super();
-        listen(this, "init", () => {
-          console.groupCollapsed(`${this.tagName}: component init`);
-          console.log("Copying initial form state");
-          this.#runUpdateCycle();
-          console.groupEnd();
-        });
+      // right after the outermost constructor has returned). Also recalculates
+      // the form state once connected
+      @init()
+      @connected()
+      #handleInit() {
+        console.groupCollapsed(`${this.tagName}: component init`);
+        console.log("Copying initial form state");
+        this.#runUpdateCycle();
+        console.groupEnd();
       }
 
       // Internal value state getter. Uses the entire inner form state as this
@@ -189,7 +195,7 @@ export function forma({ getElementInternals } = defaultOptions) {
         // Defer to base class implementation, if available
         if (VALUE_STATE_TO_ATTRIBUTE_VALUE in Target.prototype) {
           const attributeValue =
-            super[VALUE_STATE_TO_ATTRIBUTE_VALUE](valueState) ?? "";
+            super[VALUE_STATE_TO_ATTRIBUTE_VALUE].call(this, valueState) ?? "";
           if (typeof attributeValue !== "string") {
             throw new TypeError(
               `Expected attribute value to be a string, but got ${type(attributeValue)}`,
@@ -206,7 +212,7 @@ export function forma({ getElementInternals } = defaultOptions) {
         // Defer to base class implementation, if available
         if (ATTRIBUTE_VALUE_TO_VALUE_STATE in Target.prototype) {
           const valueState =
-            super[ATTRIBUTE_VALUE_TO_VALUE_STATE](attributeValue) ??
+            super[ATTRIBUTE_VALUE_TO_VALUE_STATE].call(this, attributeValue) ??
             new FormData();
           assertFormState(valueState);
           return valueState;
@@ -224,7 +230,8 @@ export function forma({ getElementInternals } = defaultOptions) {
       [VALUE_STATE_TO_SUBMISSION_STATE](valueState) {
         // Defer to base class implementation, if available
         if (VALUE_STATE_TO_SUBMISSION_STATE in Target.prototype) {
-          const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE](
+          const submissionState = super[VALUE_STATE_TO_SUBMISSION_STATE].call(
+            this,
             valueState,
           );
           assertFormState(submissionState, "submission state");
@@ -239,8 +246,10 @@ export function forma({ getElementInternals } = defaultOptions) {
         // Defer to base class implementation, if available
         if (SUBMISSION_STATE_TO_VALUE_STATE in Target.prototype) {
           const valueState =
-            super[SUBMISSION_STATE_TO_VALUE_STATE](submissionState) ??
-            new FormData();
+            super[SUBMISSION_STATE_TO_VALUE_STATE].call(
+              this,
+              submissionState,
+            ) ?? new FormData();
           assertFormState(valueState, "value state");
           return valueState;
         }
@@ -287,7 +296,9 @@ export function forma({ getElementInternals } = defaultOptions) {
         if (name !== "value") {
           return;
         }
-        console.groupCollapsed(`${this.tagName}: update to content attribute 'value'`);
+        console.groupCollapsed(
+          `${this.tagName}: update to content attribute 'value'`,
+        );
         // Do nothing if the dirty flag is set - user inputs have priority
         if (this.#DIRTY_VALUE_FLAG) {
           console.info("Ignore, dirty flag is true");
@@ -310,7 +321,9 @@ export function forma({ getElementInternals } = defaultOptions) {
       // This assumes that the value IDL attribute should work with submission
       // states. Maybe this should be configurable.
       set value(newAttributeValue) {
-        console.groupCollapsed(`${this.tagName}: update to IDL attribute 'value'`);
+        console.groupCollapsed(
+          `${this.tagName}: update to IDL attribute 'value'`,
+        );
         this.#DIRTY_VALUE_FLAG = true;
         const valueState =
           this[ATTRIBUTE_VALUE_TO_VALUE_STATE](newAttributeValue);
@@ -327,11 +340,14 @@ export function forma({ getElementInternals } = defaultOptions) {
 
       // TODO: this does not work for textarea-like elements
       set defaultValue(value) {
-        console.groupCollapsed(`${this.tagName}: update to IDL attribute 'defaultValue'`);
+        console.groupCollapsed(
+          `${this.tagName}: update to IDL attribute 'defaultValue'`,
+        );
         if (!this.#DIRTY_VALUE_FLAG) {
           console.log("Dirty flag is not true, updating value state");
-          const valueState =
-            this[ATTRIBUTE_VALUE_TO_VALUE_STATE](String(value));
+          const valueState = this[ATTRIBUTE_VALUE_TO_VALUE_STATE](
+            String(value),
+          );
           this.#runUpdateCycle(valueState);
         }
         this.setAttribute("value", String(value));
@@ -426,8 +442,7 @@ export function forma({ getElementInternals } = defaultOptions) {
       }
 
       get validationMessage() {
-        return getElementInternals(this)
-          .validationMessage;
+        return getElementInternals(this).validationMessage;
       }
 
       checkValidity() {
