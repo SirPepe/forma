@@ -92,7 +92,7 @@ Or as a flowchart:
 
 ![forma explained as a flowchart](https://github.com/SirPepe/forma/raw/main/form-flow-simplified.png)
 
-Checkout the examples in `demo/components`!
+Check out the examples in `demo/components`!
 
 ## Caveats
 
