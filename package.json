@@ -17,8 +17,18 @@
     "prepareRelease": "npm run clean && npm run lint && npm run demo:build && npm run build",
     "release": "npm run prepareRelease && release-it"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SirPepe/froma.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SirPepe/froma/issues"
+  },
+  "homepage": "https://github.com/SirPepe/froma#readme",
   "author": "peter@peterkroener.de",
-  "license": "MIT",
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.9",
     "@babel/plugin-proposal-decorators": "^7.23.0",

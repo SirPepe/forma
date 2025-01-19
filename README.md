@@ -93,7 +93,7 @@ Checkout the examples in `demo/components`!
 ## Caveats
 
 0. This is an ongoing experiment, not a finished piece of software
-1. HTML dislikes nested forms (even when separated by shadow DOM boundaries) to such an extent the compliant parsers remove nested form tags in their entirety. Therefore `myShadowRoot.innerHTML = \`<form>...</form>\`` won't fly for this approach, while any client-side rendering technology that relies on the DOM without invoking the browser's HTML parser in a context-aware fashion works fine.
+1. HTML dislikes nested forms (even when separated by shadow DOM boundaries) to such an extent the compliant parsers remove nested form tags in their entirety. Therefore `myShadowRoot.innerHTML = \`\<form\>...\</form\>\`` won't fly for this approach, while any client-side rendering technology that relies on the DOM without invoking the browser's HTML parser in a context-aware fashion works fine.
 2. Inner forms should probably not change the number or names of inner form controls
 
 ## Troubleshooting
