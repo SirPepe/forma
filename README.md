@@ -88,6 +88,10 @@ In plain english:
 2. Apply the `@forma()` decorator to the component class.
 3. Add a few data transformation methods as needed.
 
+Or as a flowchart:
+
+![forma explained as a flowchart](https://github.com/SirPepe/forma/raw/main/form-flow-simplified.png)
+
 Checkout the examples in `demo/components`!
 
 ## Caveats
