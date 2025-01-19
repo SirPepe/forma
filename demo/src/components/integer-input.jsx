@@ -12,7 +12,7 @@
 //     element set-up, but everything remains properly synced up
 
 import { define, attr, int } from "@sirpepe/ornament";
-import { forma, FormLore } from "../../src";
+import { forma, FormLore } from "../../../src";
 import { BaseElement } from "../preactBaseElement.js";
 
 @define("integer-input")
@@ -25,9 +25,7 @@ export class IntegerInput extends BaseElement {
   accessor max = null;
 
   [forma.ATTRIBUTE_VALUE_TO_VALUE_STATE](value) {
-    return FormLore.fromEntries([
-      ["input", Number.parseInt(value, 10) || 0],
-    ]);
+    return FormLore.fromEntries([["input", Number.parseInt(value, 10) || 0]]);
   }
 
   render() {
@@ -42,7 +40,8 @@ export class IntegerInput extends BaseElement {
         defaultValue={this.defaultValue}
         readOnly={this.readonly}
         disabled={this[forma.DISABLED_STATE]}
-        required={this.required} />
-      );
+        required={this.required}
+      />
+    );
   }
 }

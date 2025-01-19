@@ -1,11 +1,11 @@
 import parser from "@babel/eslint-parser";
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+import eslintConfigPrettier from "eslint-config-prettier";
 
 export default [
   {
     languageOptions: {
       parser,
     },
-    ...eslintPluginPrettierRecommended,
   },
+  eslintConfigPrettier,
 ];

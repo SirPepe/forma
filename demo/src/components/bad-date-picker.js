@@ -8,7 +8,7 @@
 //     element set-up, but everything remains properly synced up
 
 import { define } from "@sirpepe/ornament";
-import { forma, FormLore } from "../../src";
+import { forma, FormLore } from "../../../src";
 import { BaseElement } from "../uhtmlBaseElement.js";
 
 const DATE_RE = /^0*([0-9]{1,4})-0?([0-9]{1,2})-0?([0-9]{1,2})$/;

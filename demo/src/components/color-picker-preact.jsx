@@ -1,11 +1,13 @@
 import { define } from "@sirpepe/ornament";
 import { BaseElement } from "../preactBaseElement.js";
-import { forma } from "../../src";
+import { forma } from "../../../../src/index.js";
 
 const COLOR_RE = /^(?<rgb>#[a-fA-F0-9]{6})(?<a>[a-fA-F0-9]{2})$/;
 
 function toString(valueState = new FormData()) {
-  const a = Number(valueState.get("alpha") ?? "255").toString(16).padStart(2, "0");
+  const a = Number(valueState.get("alpha") ?? "255")
+    .toString(16)
+    .padStart(2, "0");
   return `${valueState.get("rgb")}${a}`;
 }
 
@@ -26,7 +28,6 @@ export class ColorPicker extends BaseElement {
   [forma.ATTRIBUTE_VALUE_TO_VALUE_STATE] = fromString;
 
   render() {
-
     const commonAttributes = {
       disabled: this[forma.DISABLED_STATE],
       required: this.required,
@@ -37,7 +38,8 @@ export class ColorPicker extends BaseElement {
           name="rgb"
           type="color"
           value={this[forma.VALUE_STATE].get("rgb")}
-          {...commonAttributes} />
+          {...commonAttributes}
+        />
         <input
           name="a"
           type="number"
@@ -45,7 +47,8 @@ export class ColorPicker extends BaseElement {
           min={0}
           max={255}
           value={this[forma.VALUE_STATE].get("a")}
-          {...commonAttributes} />
+          {...commonAttributes}
+        />
       </div>
     );
   }

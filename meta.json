@@ -1,0 +1,71 @@
+{
+  "inputs": {
+    "node_modules/@sirpepe/ornament/dist/esm/index.js": {
+      "bytes": 14624,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/forma.js": {
+      "bytes": 17681,
+      "imports": [
+        {
+          "path": "node_modules/@sirpepe/ornament/dist/esm/index.js",
+          "kind": "import-statement",
+          "original": "@sirpepe/ornament"
+        },
+        {
+          "path": "<runtime>",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/util.js": {
+      "bytes": 300,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/index.js": {
+      "bytes": 49,
+      "imports": [
+        {
+          "path": "src/forma.js",
+          "kind": "import-statement",
+          "original": "./forma"
+        },
+        {
+          "path": "src/util.js",
+          "kind": "import-statement",
+          "original": "./util"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/index.js": {
+      "imports": [],
+      "exports": [
+        "FormLore",
+        "forma"
+      ],
+      "entryPoint": "src/index.js",
+      "inputs": {
+        "node_modules/@sirpepe/ornament/dist/esm/index.js": {
+          "bytesInOutput": 7458
+        },
+        "src/forma.js": {
+          "bytesInOutput": 5430
+        },
+        "src/index.js": {
+          "bytesInOutput": 0
+        },
+        "src/util.js": {
+          "bytesInOutput": 111
+        }
+      },
+      "bytes": 15088
+    }
+  }
+}

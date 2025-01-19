@@ -10,22 +10,8 @@ import {
   trigger,
   enhance,
   connected,
+  getInternals,
 } from "@sirpepe/ornament";
-
-const INTERNALS_MAP = new WeakMap();
-
-const defaultOptions = {
-  forceFormUpdates: false,
-  getElementInternals(element) {
-    let internals = INTERNALS_MAP.get(element);
-    if (internals) {
-      return internals;
-    }
-    internals = element.attachInternals();
-    INTERNALS_MAP.set(element, internals);
-    return internals;
-  },
-};
 
 function type(x) {
   if (x === null) {
@@ -75,11 +61,7 @@ const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
 const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
-export function forma(options = {}) {
-  const { getElementInternals, forceFormUpdates } = {
-    ...defaultOptions,
-    options,
-  };
+export function forma() {
   return function (Target) {
     @enhance()
     class FormMixin extends Target {
@@ -89,7 +71,7 @@ export function forma(options = {}) {
       // must always contain a form element, which this getter makes easily
       // accessible.
       get #innerForm() {
-        return getElementInternals(this).shadowRoot.querySelector("form");
+        return getInternals(this).shadowRoot.querySelector("form");
       }
 
       // Only true when the element has been interacted with by the user since
@@ -132,7 +114,7 @@ export function forma(options = {}) {
       // The inner form can technically be submitted by itself, eg. if the user
       // hits enter while an input element is focussed. The following turns
       // nested form submission into submitting the element's form owner.
-      @subscribe((el) => getElementInternals(el).shadowRoot, "submit")
+      @subscribe((el) => getInternals(el).shadowRoot, "submit")
       handleInnerSubmit(evt) {
         evt.preventDefault();
         if (this.form?.reportValidity()) {
@@ -142,7 +124,7 @@ export function forma(options = {}) {
 
       // Input value change detection. Whenever something in the shadow root
       // receives new input, the form value for this elements gets an update.
-      @subscribe((el) => getElementInternals(el).shadowRoot, "input")
+      @subscribe((el) => getInternals(el).shadowRoot, "input")
       handleInnerInputEvents(evt) {
         console.groupCollapsed(
           `${this.tagName}: input event on <${evt.target.tagName.toLowerCase()} name="${evt.target.name}">`,
@@ -275,7 +257,7 @@ export function forma(options = {}) {
         const submissionState =
           this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
         console.log("Compute submission state", submissionState);
-        const internals = getElementInternals(this);
+        const internals = getInternals(this);
         console.log("Set value state, submission state, and validity");
         internals.setFormValue(submissionState, valueState);
         const [validity, message, anchor] = this.#composeValidity();
@@ -423,41 +405,38 @@ export function forma(options = {}) {
       // This IDL attribute only has a getter powered by element internals. The
       // content attribute "form" works implicitly.
       get form() {
-        return getElementInternals(this).form;
+        return getInternals(this).form;
       }
 
       // The following APIs are just boilerplate that expose data or methods
       // from the element internals
 
       get labels() {
-        return getElementInternals(this).labels;
+        return getInternals(this).labels;
       }
 
       get willValidate() {
-        return getElementInternals(this).willValidate;
+        return getInternals(this).willValidate;
       }
 
       get validity() {
-        return getElementInternals(this).validity;
+        return getInternals(this).validity;
       }
 
       get validationMessage() {
-        return getElementInternals(this).validationMessage;
+        return getInternals(this).validationMessage;
       }
 
       checkValidity() {
-        return getElementInternals(this).checkValidity();
+        return getInternals(this).checkValidity();
       }
 
       reportValidity() {
-        return getElementInternals(this).reportValidity();
+        return getInternals(this).reportValidity();
       }
 
       setCustomValidity(message) {
-        return getElementInternals(this).setValidity(
-          { customError: true },
-          message,
-        );
+        return getInternals(this).setValidity({ customError: true }, message);
       }
 
       // The following getters expose internal states that are useful for
