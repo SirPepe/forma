@@ -22,12 +22,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SirPepe/froma.git"
+    "url": "https://github.com/SirPepe/forma.git"
   },
   "bugs": {
-    "url": "https://github.com/SirPepe/froma/issues"
+    "url": "https://github.com/SirPepe/forma/issues"
   },
-  "homepage": "https://github.com/SirPepe/froma#readme",
+  "homepage": "https://github.com/SirPepe/forma#readme",
   "author": "peter@peterkroener.de",
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.9",
