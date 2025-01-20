@@ -12,6 +12,7 @@
     "clean": "rm -rf dist && rm -rf demo/dist",
     "lint": "npx prettier . --check && eslint",
     "build": "esbuild src/index.js --format=esm --target=es2022 --metafile=meta.json --minify --bundle --outdir=dist",
+    "dev": "esbuild src/index.js --format=esm --target=es2022 --metafile=meta.json --bundle --outdir=dist",
     "demo:dev": "parcel --no-cache --dist-dir demo/dist demo/src/index.html",
     "demo:build": "parcel build --no-cache --dist-dir demo/dist demo/src/index.html",
     "prepareRelease": "npm run clean && npm run lint && npm run demo:build && npm run build",
