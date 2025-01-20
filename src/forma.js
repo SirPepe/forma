@@ -11,6 +11,7 @@ import {
   enhance,
   connected,
   getInternals,
+  reactive,
 } from "@sirpepe/ornament";
 
 function type(x) {
@@ -61,7 +62,8 @@ const VALUE_STATE_TO_ATTRIBUTE_VALUE = Symbol();
 const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
-export function forma() {
+export function forma(options = {}) {
+  const { sync = false } = options; // TODO: add docs
   return function (Target) {
     @enhance()
     class FormMixin extends Target {
@@ -158,7 +160,6 @@ export function forma() {
       // right after the outermost constructor has returned). Also recalculates
       // the form state once connected
       @init()
-      @connected()
       #handleInit() {
         if (process.env.NODE_ENV === "development") {
           console.groupCollapsed(`${this.tagName}: component init`);
@@ -262,7 +263,7 @@ export function forma() {
         }
         // Set the form value for the next re-render
         this.#nextValueState = valueState;
-        // Trigger re-renders
+        // Trigger an event that re-rendering logic might want to hook into
         if (process.env.NODE_ENV === "development") {
           console.log("Trigger view update");
         }
@@ -283,6 +284,41 @@ export function forma() {
         if (process.env.NODE_ENV === "development") {
           console.groupEnd();
         }
+      }
+
+      @reactive({
+        keys: ["@formValue", "readOnly", "required", "#disabledState"],
+        predicate: () => sync,
+      })
+      #syncForm() {
+        if (!this.#nextValueState) {
+          return;
+        }
+        if (process.env.NODE_ENV === "development") {
+          console.group("Auto-syncing inner form");
+          console.log("Synchronizing to value state:", this.#nextValueState);
+        }
+        const update = {
+          readOnly: this.readOnly,
+          required: this.required,
+          disabled: this.#disabledState,
+        };
+        const formValueState = Array.from(this.#nextValueState);
+        for (const el of this.#innerForm.elements) {
+          const value = formValueState.find(([name]) => name === el.name);
+          if (typeof value === "undefined") {
+            console.log(`${el.name}: ${JSON.stringify(update)}`);
+            Object.assign(el, update);
+          } else {
+            console.log(
+              `${el.name}: ${JSON.stringify({ ...update, value: value[1] })}`,
+            );
+            Object.assign(el, update, { value: value[1] });
+          }
+        }
+        // if (process.env.NODE_ENV === "development") {
+        console.groupEnd();
+        // }
       }
 
       // The content attribute "value" gets a manual implementation because it
@@ -337,6 +373,7 @@ export function forma() {
           console.groupCollapsed(
             `${this.tagName}: update to IDL attribute 'value'`,
           );
+          console.log("New value:", newAttributeValue);
         }
         this.#DIRTY_VALUE_FLAG = true;
         const valueState =
