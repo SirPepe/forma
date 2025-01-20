@@ -126,19 +126,25 @@ export function forma() {
       // receives new input, the form value for this elements gets an update.
       @subscribe((el) => getInternals(el).shadowRoot, "input")
       handleInnerInputEvents(evt) {
-        console.groupCollapsed(
-          `${this.tagName}: input event on <${evt.target.tagName.toLowerCase()} name="${evt.target.name}">`,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(
+            `${this.tagName}: input event on <${evt.target.tagName.toLowerCase()} name="${evt.target.name}">`,
+          );
+        }
         this.#runUpdateCycle();
         this.#DIRTY_VALUE_FLAG = true;
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // Form resets must reset the value (possibly falling back to the content
       // attribute, if it exists) and reset the dirty flag.
       @formReset()
       handleFormReset() {
-        console.groupCollapsed(`${this.tagName}: form reset`);
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(`${this.tagName}: form reset`);
+        }
         const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](
           this.getAttribute("value"),
         );
@@ -154,10 +160,14 @@ export function forma() {
       @init()
       @connected()
       #handleInit() {
-        console.groupCollapsed(`${this.tagName}: component init`);
-        console.log("Copying initial form state");
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(`${this.tagName}: component init`);
+          console.log("Copying initial form state");
+        }
         this.#runUpdateCycle();
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // Internal value state getter. Uses the entire inner form state as this
@@ -246,23 +256,33 @@ export function forma() {
 
       // Actually sets the form state and takes care of validation
       #runUpdateCycle(valueState = this.#currentValueState ?? new FormData()) {
-        console.groupCollapsed(`${this.tagName}: update cycle`);
-        console.log("New value state:", valueState);
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(`${this.tagName}: update cycle`);
+          console.log("New value state:", valueState);
+        }
         // Set the form value for the next re-render
         this.#nextValueState = valueState;
         // Trigger re-renders
-        console.log("Trigger view update");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Trigger view update");
+        }
         trigger(this, "prop", "@formValue", valueState);
         // Update externally-visible validation state and form value
         const submissionState =
           this[VALUE_STATE_TO_SUBMISSION_STATE](valueState);
-        console.log("Compute submission state", submissionState);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Compute submission state", submissionState);
+        }
         const internals = getInternals(this);
-        console.log("Set value state, submission state, and validity");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Set value state, submission state, and validity");
+        }
         internals.setFormValue(submissionState, valueState);
         const [validity, message, anchor] = this.#composeValidity();
         internals.setValidity(validity, message, anchor);
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // The content attribute "value" gets a manual implementation because it
@@ -278,20 +298,30 @@ export function forma() {
         if (name !== "value") {
           return;
         }
-        console.groupCollapsed(
-          `${this.tagName}: update to content attribute 'value'`,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(
+            `${this.tagName}: update to content attribute 'value'`,
+          );
+        }
         // Do nothing if the dirty flag is set - user inputs have priority
         if (this.#DIRTY_VALUE_FLAG) {
-          console.info("Ignore, dirty flag is true");
-          console.groupEnd();
+          if (process.env.NODE_ENV === "development") {
+            console.info("Ignore, dirty flag is true");
+            console.groupEnd();
+          }
           return;
         }
-        console.log("Attribute value:", newValue);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Attribute value:", newValue);
+        }
         const valueState = this[SUBMISSION_STATE_TO_VALUE_STATE](newValue);
-        console.log("Value state:", valueState);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Value state:", valueState);
+        }
         this.#runUpdateCycle(valueState);
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // This assumes that the value IDL attribute should return the submission
@@ -303,14 +333,18 @@ export function forma() {
       // This assumes that the value IDL attribute should work with submission
       // states. Maybe this should be configurable.
       set value(newAttributeValue) {
-        console.groupCollapsed(
-          `${this.tagName}: update to IDL attribute 'value'`,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(
+            `${this.tagName}: update to IDL attribute 'value'`,
+          );
+        }
         this.#DIRTY_VALUE_FLAG = true;
         const valueState =
           this[ATTRIBUTE_VALUE_TO_VALUE_STATE](newAttributeValue);
         this.#runUpdateCycle(valueState);
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // Expose the current "default value" (content attribute "value") as an
@@ -322,18 +356,24 @@ export function forma() {
 
       // TODO: this does not work for textarea-like elements
       set defaultValue(value) {
-        console.groupCollapsed(
-          `${this.tagName}: update to IDL attribute 'defaultValue'`,
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.groupCollapsed(
+            `${this.tagName}: update to IDL attribute 'defaultValue'`,
+          );
+        }
         if (!this.#DIRTY_VALUE_FLAG) {
-          console.log("Dirty flag is not true, updating value state");
+          if (process.env.NODE_ENV === "development") {
+            console.log("Dirty flag is not true, updating value state");
+          }
           const valueState = this[ATTRIBUTE_VALUE_TO_VALUE_STATE](
             String(value),
           );
           this.#runUpdateCycle(valueState);
         }
         this.setAttribute("value", String(value));
-        console.groupEnd();
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // Required for all form elements
