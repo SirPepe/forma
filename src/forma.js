@@ -306,12 +306,16 @@ export function forma(options = {}) {
         for (const el of this.#innerForm.elements) {
           const value = formValueState.find(([name]) => name === el.name);
           if (typeof value === "undefined") {
-            console.log(`${el.name}: ${JSON.stringify(update)}`);
+            if (process.env.NODE_ENV === "development") {
+              console.log(`${el.name}: ${JSON.stringify(update)}`);
+            }
             Object.assign(el, update);
           } else {
-            console.log(
-              `${el.name}: ${JSON.stringify({ ...update, value: value[1] })}`,
-            );
+            if (process.env.NODE_ENV === "development") {
+              console.log(
+                `${el.name}: ${JSON.stringify({ ...update, value: value[1] })}`,
+              );
+            }
             Object.assign(el, update, { value: value[1] });
           }
         }
