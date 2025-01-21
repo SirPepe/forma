@@ -62,7 +62,7 @@ const ATTRIBUTE_VALUE_TO_VALUE_STATE = Symbol();
 
 // Decorator for turning custom elements into form elements
 export function forma(options = {}) {
-  const { sync = false } = options; // TODO: add docs
+  const { sync = false } = options;
   return function (Target) {
     @enhance()
     class FormMixin extends Target {

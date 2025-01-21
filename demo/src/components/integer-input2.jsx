@@ -14,7 +14,7 @@ import { render } from "preact";
 import { forma } from "../../../src/index.js";
 
 @define("integer-input") // Component registration
-@forma() // Form decorator
+@forma({ sync: true }) // Form decorator
 export class IntegerInput extends HTMLElement {
   #shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
 
@@ -32,8 +32,9 @@ export class IntegerInput extends HTMLElement {
   // state can also be composed form the elements that make up the inner form.
   // "change" events on nested form elements are intercepted and trigger
   // re-computation if the elements value, submission and validity states.
-  // The process of composing the value and submission state from the inner form
-  // can run in reverse if the element's value state is changed eg. via JS.
+  // If { sync: true } is passed to @forma(), the process of composing the value
+  // and submission state from the inner form runs in reverse if the containing
+  // element's value/disabled/readOnly state is changed eg. via JS.
   @connected()
   @reactive()
   render() {
@@ -45,11 +46,6 @@ export class IntegerInput extends HTMLElement {
           type="number"
           min={this.min ?? ""}
           max={this.max ?? ""}
-          value={this[forma.VALUE_STATE].get("input")}
-          defaultValue={this.defaultValue}
-          readOnly={this.readonly}
-          disabled={this[forma.DISABLED_STATE]}
-          required={this.required}
         />
       </form>,
       this.#shadow,

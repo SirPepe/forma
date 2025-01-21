@@ -60,8 +60,9 @@ export class IntegerInput extends HTMLElement {
   // state can also be composed form the elements that make up the inner form.
   // "change" events on nested form elements are intercepted and trigger
   // re-computation if the elements value, submission and validity states.
-  // The process of composing the value and submission state from the inner form
-  // can run in reverse if the element's value state is changed eg. via JS.
+  // If { sync: true } is passed to @forma(), the process of composing the value
+  // and submission state from the inner form runs in reverse if the containing
+  // element's value/disabled/readOnly state is changed eg. via JS.
   @connected()
   @reactive()
   render() {
@@ -73,11 +74,6 @@ export class IntegerInput extends HTMLElement {
           type="number"
           min={this.min ?? ""}
           max={this.max ?? ""}
-          value={this[forma.VALUE_STATE].get("input")}
-          defaultValue={this.defaultValue}
-          readOnly={this.readonly}
-          disabled={this[forma.DISABLED_STATE]}
-          required={this.required}
         />
       </form>,
       this.#shadow,
@@ -121,11 +117,20 @@ Forma aims to make custom form-associated elements behave _identical_ to built i
 - [**Dirty state tracking**](https://html.spec.whatwg.org/#concept-fe-dirty) to properly handle the effects of updating the content attribute `value`
 - **Disabled state handling** based on the form control's own `disabled` attribute _and_ [the `disabled` state of `<fieldset>` ancestors](https://html.spec.whatwg.org/#enabling-and-disabling-form-controls:-the-disabled-attribute)
 
+## Optional auto-sync mode
+
+If you pass `{ sync: true }` when calling `@forma()` auto-sync mode will be enabled. This manages the following properties on form controls in the inner form as follows:
+
+- `readOnly`: set to the same value as the containing form control component
+- `required`: set to the same value as the containing form control component
+- `disabled`: set to reflect the containing form control component's disabled state (taking ancestor `<fieldset>` elements into account)
+- `value`: set to the matching entry in the value state, if one exists
+
 ## API summary
 
 | API                                     | Description                                                                                                                                     |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@forma()`                              | **Class decorator** for form control components                                                                                                 |
+| `@forma(options?)`                      | **Class decorator** for form control components. `options?: { sync: boolean = false }`                                                          |
 | `forma.VALUE_STATE_TO_SUBMISSION_STATE` | **Symbol**; name for a data transformation method                                                                                               |
 | `forma.SUBMISSION_STATE_TO_VALUE_STATE` | **Symbol**; name for a data transformation method                                                                                               |
 | `forma.VALUE_STATE_TO_ATTRIBUTE_VALUE`  | **Symbol**; name for a data transformation method                                                                                               |
@@ -135,9 +140,9 @@ Forma aims to make custom form-associated elements behave _identical_ to built i
 
 ## Caveats
 
-0. This is more of an ongoing experiment, than a finished piece of software.
-1. If you don't explicitly need an convention-based way to ease the process of writing form-associated custom elements, than this is probably not the library for you
-2. HTML dislikes nested forms (even when separated by shadow DOM boundaries) to such an extent the compliant parsers ([not Firefox](https://bugzilla.mozilla.org/show_bug.cgi?id=1877971)) remove nested form tags in their entirety. Therefore `myShadowRoot.innerHTML = "<form>...</form>""` won't fly for this approach, while any client-side rendering technology that relies on the DOM without invoking the browser's HTML parser in a context-aware fashion works fine. Use Preact, uhtml, whatever.
+0. This is currently more of an **ongoing experiment** than a finished piece of software.
+1. If you don't explicitly need an convention-based way to **ease the process of writing form-associated custom elements**, than this is probably not the library for you
+2. HTML dislikes nested forms (even when separated by shadow DOM boundaries) to such an extent the compliant parsers ([not Firefox](https://bugzilla.mozilla.org/show_bug.cgi?id=1877971)) remove nested form tags in their entirety. Therefore `myShadowRoot.innerHTML = "<form>...</form>""` won't fly for this approach, while any client-side rendering technology that relies on the DOM without invoking the browser's HTML parser in a context-aware fashion works fine. Use Preact, uhtml, whatever. SSR is also not possible, but this should not matter for form controls.
 3. Be aware that your inner form controls value states will be handled by the library. Better not to touch them!
 4. textarea-like form controls (where the value is provided by the content between the tags) are currently not supported
 
