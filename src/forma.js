@@ -9,7 +9,6 @@ import {
   formReset,
   trigger,
   enhance,
-  connected,
   getInternals,
   reactive,
 } from "@sirpepe/ornament";
