@@ -1,6 +1,6 @@
 import { define } from "@sirpepe/ornament";
 import { BaseElement } from "../preactBaseElement.js";
-import { forma } from "../../../../src/index.js";
+import { forma } from "../../../src";
 
 const COLOR_RE = /^(?<rgb>#[a-fA-F0-9]{6})(?<a>[a-fA-F0-9]{2})$/;
 

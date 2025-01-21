@@ -43,7 +43,7 @@ const INTERNALS_KEY = Symbol();
 // Override the default getElementInternals() to make the decorator work with
 // the element's own internals
 @define("color-picker")
-@forma()
+@forma({ sync: true })
 export class ColorPicker extends HTMLElement {
   #shadow = this.attachShadow({ mode: "closed", delegatesFocus: true });
   [INTERNALS_KEY] = this.attachInternals();
@@ -56,7 +56,6 @@ export class ColorPicker extends HTMLElement {
     const rgb = Object.assign(document.createElement("input"), {
       name: "rgb",
       type: "color",
-      style: "block-size: inherit; inline-size: inherit",
     });
     const alpha = Object.assign(document.createElement("input"), {
       name: "alpha",
@@ -72,36 +71,4 @@ export class ColorPicker extends HTMLElement {
   [forma.SUBMISSION_STATE_TO_VALUE_STATE] = fromString;
   [forma.VALUE_STATE_TO_ATTRIBUTE_VALUE] = toString;
   [forma.ATTRIBUTE_VALUE_TO_VALUE_STATE] = fromString;
-
-  // readOnly does not work on [type=color], but we can force it to...
-  @subscribe((el) => el[INTERNALS_KEY].shadowRoot, "input click", {
-    capture: true,
-  })
-  enforceReadonly(evt) {
-    if (this.readOnly) {
-      evt.preventDefault();
-    }
-  }
-
-  @reactive()
-  render() {
-    Object.assign(
-      this[INTERNALS_KEY].shadowRoot.querySelector("input[type=color]"),
-      {
-        readOnly: this.readOnly,
-        disabled: this[forma.DISABLED_STATE],
-        required: this.required,
-        value: this[forma.VALUE_STATE].get("rgb") ?? "#000000",
-      },
-    );
-    Object.assign(
-      this[INTERNALS_KEY].shadowRoot.querySelector("input[type=number]"),
-      {
-        readOnly: this.readOnly,
-        disabled: this[forma.DISABLED_STATE],
-        required: this.required,
-        value: this[forma.VALUE_STATE].get("alpha") ?? "255",
-      },
-    );
-  }
 }
