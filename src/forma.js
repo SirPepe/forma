@@ -316,9 +316,9 @@ export function forma(options = {}) {
             Object.assign(el, update, { value: value[1] });
           }
         }
-        // if (process.env.NODE_ENV === "development") {
-        console.groupEnd();
-        // }
+        if (process.env.NODE_ENV === "development") {
+          console.groupEnd();
+        }
       }
 
       // The content attribute "value" gets a manual implementation because it
