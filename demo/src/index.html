@@ -22,7 +22,7 @@
 
     if (target.matches("button.toggleReadonly")) {
       for (element of document.querySelector("form").elements) {
-        element.readonly = !element.readonly;
+        element.readOnly = !element.readOnly;
       }
     }
   });
